@@ -1,0 +1,32 @@
+---
+title: "point_source_N_loading"
+author: "Alex Huddell"
+date: "7/19/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Read in N discharge data
+
+```{r, echo=FALSE}
+library(tidyverse)
+library(here)
+
+tbl <-
+    map_df(
+      list.files(path=paste0(here::here(), "/NPDES_discharge"), pattern="*.csv"),
+      function(file) read_csv(paste0(here::here(), "/NPDES_discharge/", file))
+      )
+
+unique_facilities<-as_tibble(unique(tbl$'NPDES Permit Number'))
+nrow(unique_facilities)
+
+write.csv(unique_facilities, "unique ECHO facilities LIS watershed 2007_2020.csv")
+write.csv(tbl, "all ECHO data LIS watershed 2007_2020.csv")
+
+
+```
+

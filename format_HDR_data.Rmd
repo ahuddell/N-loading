@@ -1,0 +1,67 @@
+---
+title: "format HDR data"
+author: "Alex Huddell"
+date: "7/28/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#load libraries and data
+
+```{r }
+require(tidyverse)
+require(lubridate)
+require(here)
+
+col_specifications<-paste0('c','_','_','f','f','f','f','f','c','f','f','f','c','_',
+                      '_','_',"c") #list to specify column types
+
+dat<-readr::read_csv(file=paste0(here::here(), 
+                                 "/HDR_data_retrieval/ECHO_data_HDR_only.csv"), 
+                     
+                     col_types = col_specifications)
+          
+
+#reformating several columns
+dat<-dat%>%
+  mutate(date=mdy(`Date / Monitoring Period`),
+            value=`Reported Value`, ) %>%
+  select(-`Date / Monitoring Period`,-`Reported Value`)
+names(dat)
+  
+
+```
+
+#sample plot with total N data only
+
+```{r pressure, echo=FALSE}
+levels(dat$Parameter)
+
+N_parameters<-c("00610 - Nitrogen, ammonia total (as N)","00615 - Nitrogen, nitrite total (as N)" ,"00620 - Nitrogen, nitrate total (as N)"  , "00600 - Nitrogen, total" , "N51445 - Nitrogen, Total", "00625 - Nitrogen, Kjeldahl, total (as N)", "00605 - Nitrogen, organic total (as N)", "00630 - Nitrite plus nitrate total 1 det. (as N)","34726 - Nitrogen, ammonia, total (as NH3)" ,"51445 - Nitrogen, Total")
+
+N_only <- dat %>%
+  filter(Parameter %in% N_parameters) %>% #selects only N-related parameters
+  filter(!grepl('No Data', value)) %>% #excludes missing values
+  pivot_wider(names_from = `Parameter`, values_from = `value`)
+
+N_only
+
+#  pivot_wider(names_from = `Statistical Base Long Desc`, values_from =`value`) %>%
+
+
+levels(N_only$Units)
+
+levels(as.factor(N_only$`Monitoring Location`))
+
+levels(as.factor(N_only$`Statistical Base Long Desc`))
+
+
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

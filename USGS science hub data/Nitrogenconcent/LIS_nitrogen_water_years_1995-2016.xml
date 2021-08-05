@@ -1,0 +1,382 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<metadata>
+  <idinfo>
+    <citation>
+      <citeinfo>
+        <origin>Mullaney, John, R.</origin>
+        <pubdate>20200108</pubdate>
+        <title>Nitrogen concentrations and loads and seasonal nitrogen loads in selected Long Island Sound tributaries, water years 1995-2016</title>
+        <geoform>tabular</geoform>
+        <pubinfo>
+          <pubplace>Reston, VA</pubplace>
+          <publish>U.S. Geological Survey</publish>
+        </pubinfo>
+        <onlink>https://doi.org/10.5066/P9AVXGBB</onlink>
+        <lworkcit>
+          <citeinfo>
+            <origin>Penny Vlahos</origin>
+            <origin>Michael M. Whitney</origin>
+            <origin>Christina Menniti</origin>
+            <origin>John R. Mullaney</origin>
+            <origin>Jonathan Morrison</origin>
+            <origin>Yan Jia</origin>
+            <pubdate>202001</pubdate>
+            <title>Nitrogen budgets of the Long Island Sound estuary</title>
+            <geoform>publication</geoform>
+            <serinfo>
+              <sername>Estuarine, Coastal and Shelf Science</sername>
+              <issue>vol. 232</issue>
+            </serinfo>
+            <pubinfo>
+              <pubplace>n/a</pubplace>
+              <publish>Elsevier BV</publish>
+            </pubinfo>
+            <othercit>ppg. 106493</othercit>
+            <onlink>https://doi.org/10.1016/j.ecss.2019.106493</onlink>
+          </citeinfo>
+        </lworkcit>
+      </citeinfo>
+    </citation>
+    <descript>
+      <abstract>This U.S. Geological Survey data release presents tabular data on nitrogen concentrations and loads for multiple nitrogen species, and river discharge data used in the analysis of data collected from October 1994 to September 2016. Data on flow and nitrogen concentrations were analyzed using the USGS EGRET R package, and the method of WRTDS (Weighted Regression on Time Discharge and Season). 
+Data and outputs summarized are for water-quality data collected from 18 water-quality monitoring stations in the Long Island Sound watershed. Specific data in tabular format for this release include: calculated annual nitrogen concentration and loads, calculated annual flow-normalized nitrogen concentrations and loads by water year (for sites with 20 years of data or more), and calculated annual seasonal loads of each nitrogen constituent by calendar year. Measured daily river discharge data and sampled nitrogen concentration data for each water-quality monitoring site are available as tables accessible within R statistical software.</abstract>
+      <purpose>This data release provides information on the water-quality budget of nitrogen compounds in tributaries of Long Island Sound, in cooperation with researchers from the University of Connecticut.</purpose>
+    </descript>
+    <timeperd>
+      <timeinfo>
+        <rngdates>
+          <begdate>19941001</begdate>
+          <enddate>20160930</enddate>
+        </rngdates>
+      </timeinfo>
+      <current>ground condition</current>
+    </timeperd>
+    <status>
+      <progress>Complete</progress>
+      <update>As needed</update>
+    </status>
+    <spdom>
+      <bounding>
+        <westbc>-73.4262</westbc>
+        <eastbc>-71.8331</eastbc>
+        <northbc>41.9873</northbc>
+        <southbc>41.1354</southbc>
+      </bounding>
+    </spdom>
+    <keywords>
+      <theme>
+        <themekt>USGS Thesaurus</themekt>
+        <themekey>nutrient content (water)</themekey>
+        <themekey>stream discharge</themekey>
+        <themekey>surface water quality</themekey>
+        <themekey>WRTDS</themekey>
+        <themekey>load analysis</themekey>
+        <themekey>weighted regression</themekey>
+        <themekey>nitrogen</themekey>
+      </theme>
+      <theme>
+        <themekt>USGS Metadata Identifier</themekt>
+        <themekey>USGS:5d137f19e4b0941bde581b67</themekey>
+      </theme>
+      <place>
+        <placekt>Long Island Sound Watershed</placekt>
+        <placekey>Connecticut</placekey>
+        <placekey>Rhode Island</placekey>
+        <placekey>Long Island Sound</placekey>
+        <placekey>Long Island Sound Watershed</placekey>
+      </place>
+    </keywords>
+    <accconst>none</accconst>
+    <useconst>none</useconst>
+    <ptcontac>
+      <cntinfo>
+        <cntperp>
+          <cntper>John R Mullaney</cntper>
+          <cntorg>Northeast Region: NEW ENGLAND WSC CT OFC</cntorg>
+        </cntperp>
+        <cntpos>Hydrologist (Geol)</cntpos>
+        <cntaddr>
+          <addrtype>mailing and physical</addrtype>
+          <address>101 Pitkin Street</address>
+          <city>East Hartford</city>
+          <state>CT</state>
+          <postal>06108</postal>
+          <country>United States</country>
+        </cntaddr>
+        <cntvoice>860-291-6760</cntvoice>
+        <cntemail>jmullane@usgs.gov</cntemail>
+      </cntinfo>
+    </ptcontac>
+    <crossref>
+      <citeinfo>
+        <origin>Mullaney, John, R.</origin>
+        <pubdate>201603</pubdate>
+        <title>Nutrient, organic carbon, and chloride concentrations and loads in selected Long Island Sound tributaries—Four decades of change following the passage of the Federal Clean Water Act</title>
+        <geoform>publication</geoform>
+        <pubinfo>
+          <pubplace>Reston, VA</pubplace>
+          <publish>U.S. Geological Survey</publish>
+        </pubinfo>
+        <onlink>https://pubs.usgs.gov/sir/2015/5189/sir20155189.pdf</onlink>
+      </citeinfo>
+    </crossref>
+  </idinfo>
+  <dataqual>
+    <attracc>
+      <attraccr>No formal attribute accuracy tests were conducted</attraccr>
+    </attracc>
+    <logic>No formal logical accuracy tests were conducted</logic>
+    <complete>Data set is considered complete for the information presented, as described in the abstract. Users are advised to read the rest of the metadata record carefully for additional details.</complete>
+    <posacc>
+      <horizpa>
+        <horizpar>No formal positional accuracy tests were conducted</horizpar>
+      </horizpa>
+      <vertacc>
+        <vertaccr>No formal positional accuracy tests were conducted</vertaccr>
+      </vertacc>
+    </posacc>
+    <lineage>
+      <srcinfo>
+        <srccite>
+          <citeinfo>
+            <origin>U.S. Geological Survey</origin>
+            <pubdate>2017</pubdate>
+            <title>U.S. Geological Survey National Water Information System</title>
+            <geoform>tabular</geoform>
+            <pubinfo>
+              <pubplace>Reston, VA</pubplace>
+              <publish>U.S. Geological Survey</publish>
+            </pubinfo>
+            <onlink>https://waterservices.usgs.gov/</onlink>
+          </citeinfo>
+        </srccite>
+        <typesrc>Geospatial data</typesrc>
+        <srctime>
+          <timeinfo>
+            <rngdates>
+              <begdate>19941001</begdate>
+              <enddate>20160930</enddate>
+            </rngdates>
+          </timeinfo>
+          <srccurr>publication date</srccurr>
+        </srctime>
+        <srccitea>Daily mean discharge data and discrete water-quality concentration data</srccitea>
+        <srccontr>Observations of river discharge and water-quality concentration data used in WRTDS model to predict concentrations and loads of nitrogen species</srccontr>
+      </srcinfo>
+      <procstep>
+        <procdesc>For all except 2 sites (described in the next Process_Step), water-quality concentration and daily mean discharge data were retrieved from https://waterservices.usgs.gov/ through the use of the USGS R package dataRetrieval: https://github.com/USGS-R/dataRetrieval. The use of the package for this application is described in Hirsch, R.M., and De Cicco, L.A., 2015, User guide to Exploration and Graphics for RivEr Trends (EGRET) and dataRetrieval: R packages for hydrologic data (version 2.0, February 2015): U.S. Geological Survey Techniques and Methods book 4, chap. A10, 93 p., https://dx.doi.org/10.3133/tm4A10.</procdesc>
+        <procdate>20171127</procdate>
+      </procstep>
+      <procstep>
+        <procdesc>For the site 01209710, Norwalk River at Winnipauk, Connecticut, daily river discharge data were downloaded from https://waterservices.usgs.gov/ through the use of the USGS R package dataRetrieval: https://github.com/USGS-R/dataRetrieval) from an upstream site (01209700, Norwalk River at South Wilton, Connecticut), and were multiplied by 1.10 as a correction for the 10 percent difference in drainage area.
+For the site 01122610, Shetucket River at South Windham, Connecticut, daily discharge data were downloaded from from an upstream site (01122500, Shetucket River near Willimantic, Connecticut), and were multiplied by 1.01 as a correction for the difference in drainage area.</procdesc>
+        <procdate>20171127</procdate>
+      </procstep>
+      <procstep>
+        <procdesc>Methods: Nitrogen loads were estimated using a weighted regression approach called Weighted Regressions on Time, Discharge, and Season (WRTDS) (Hirsch and others, 2010), which is included in the R software package called EGRET - Exploration and Graphics for River Trends (version 2.6.0) (Hirsch and DeCicco, 2015). The application of WRTDS to generate the results provided in Vlahos and others, 2020 (in review***).   Description of a previous use of this method in the Long Island Sound Watershed is given in Mullaney (2016).
+
+Concentrations and loads were not estimated in WRTDS if greater than 50 percent of the water-quality concentration data were below (reported with a “&lt;” remark) the reporting limit. Output data on flow-normalized concentrations and loads were not estimated for sites with less than 20 years of water-quality records. Flow normalization is described in detail in Hirsch and others (2010).
+
+Sites numbers and names
+USGS	01118500	PAWCATUCK RIVER AT WESTERLY, RI
+USGS	01122610	SHETUCKET R AT SOUTH WINDHAM, CT
+USGS	011230695	SHETUCKET RIVER AT TAFTVILLE, CT
+USGS	01127000	QUINEBAUG RIVER AT JEWETT CITY, CT
+USGS	01127500	YANTIC RIVER AT YANTIC, CT
+USGS	01184000	CONNECTICUT RIVER AT THOMPSONVILLE, CT
+USGS	01184490	BROAD BROOK AT BROAD BROOK, CT
+USGS	01189995	FARMINGTON RIVER AT TARIFFVILLE, CT
+USGS	01192500	HOCKANUM RIVER NEAR EAST HARTFORD, CT
+USGS	01193500	SALMON RIVER NEAR EAST HAMPTON, CT
+USGS	01195100	INDIAN RIVER NEAR CLINTON, CT
+USGS	01196500	QUINNIPIAC RIVER AT WALLINGFORD, CT
+USGS	01205500	HOUSATONIC RIVER AT STEVENSON, CT
+USGS	01208500	NAUGATUCK RIVER AT BEACON FALLS, CT
+USGS	01208873	ROOSTER RIVER AT FAIRFIELD, CT
+USGS	01208950	SASCO BROOK NEAR SOUTHPORT, CT
+USGS	01208990	SAUGATUCK RIVER NEAR REDDING, CT
+USGS	01209710	NORWALK RIVER AT WINNIPAUK, CT
+
+Parameter codes and explanation
+parameter_code	parameter_name				parameter_units
+'00600'		Total nitrogen [nitrate + nitrite + ammonia + organic-N], water, unfiltered	mg/l 
+'00607'		Organic nitrogen, water, filtered			mg/l as N
+'00608'		Ammonia (NH3 + NH4+), water, filtered			mg/l as N
+'00613'		Nitrite, water, filtered				mg/l as N
+'00618'		Nitrate, water, filtered				mg/l as N
+'00623'		Ammonia plus organic nitrogen, water, filtered		mg/l as N
+'00625'		Ammonia plus organic nitrogen, water, unfiltered		mg/l as N
+'00631'		Nitrate plus nitrite, water, filtered			mg/l as N
+
+References Cited: 
+Hirsch, R.M., Moyer, D.L., and Archfield, S.A., 2010, Weighted regressions on time, discharge, and season (WRTDS), with an application to Chesapeake Bay river inputs: Journal of the American Water Resources Research Association, v. 46, no. 5, p. 857-880  
+
+Hirsch, R.M. and De Cicco, Laura, 2015, User guide to Exploration and Graphics for RivEr Trends (EGRET) and dataRetrieval: R packages for hydrologic data (version 2.0, February 2015): U.S. Geological Survey Techniques and Methods book 4, chap. A10, 93 p., http://dx.doi.org/10.3133/tm4A10.(accessed June 26, 2019). 
+
+Mullaney, J.R., 2016, Nutrient, organic carbon, and chloride concentrations and loads in selected Long Island Sound tributaries—Four decades of change following the passage of the Federal Clean Water Act: U.S. Geological Survey Scientific Investigations Report 2015–5189, 47 p., http://dx.doi.org/10.3133/sir20155189.
+
+Vlahos, P., Whitney, M.M., Menniti, C., Mullaney, J.R., Morrison, J, 2020, Nitrogen Budgets of the Long Island Sound Estuary: Coastal and Shelf Science, in review</procdesc>
+        <procdate>20171127</procdate>
+      </procstep>
+    </lineage>
+  </dataqual>
+  <eainfo>
+    <detailed>
+      <enttyp>
+        <enttypl>AnnualResults.zip</enttypl>
+        <enttypd>Zipped file of multiple csv files containing WRTDS annual estimates of concentration and load for all sites and constituent combinations. This was done using the command:  tableResults(eList, qUnit = 2, fluxUnit = 13) in the EGRET R package.
+Individual file nomenclature is as follows: USGS Station Number.Parameter Code (where, 00600 = Total nitrogen [nitrate + nitrite + ammonia + organic-N], water, unfiltered; 00607= Organic nitrogen, water, filtered; 00608 = Ammonia (NH3 + NH4+), water, filtered; 00613 = Nitrite, water, filtered;  00618 = Nitrate, water, filtered, milligrams per liter as nitrogen; 00623 = Ammonia plus organic nitrogen, water, filtered; 00625 = Ammonia plus organic nitrogen, water, unfiltered; 00631 = Nitrate plus nitrite, water, filtered ).output.csv.</enttypd>
+        <enttypds>Producer defined (For more information see: Hirsch, R.M., and De Cicco, L.A., 2015, User guide to Exploration and Graphics for RivEr Trends (EGRET) and dataRetrieval: R packages for hydrologic data (version 2.0, February 2015): U.S. Geological Survey Techniques and Methods book 4, chap. A10, 93 p., http://dx.doi.org/10.3133/tm4A10</enttypds>
+      </enttyp>
+      <attr>
+        <attrlabl>Year</attrlabl>
+        <attrdef>Water year, defined as the 12-month period beginning on October 1, for any given year through September 30, of the following year. The water year is designated by the calendar year in which it ends and which includes 9 of the 12 months. Thus, the year ending September 30, 1999 is called the "1999" water year.</attrdef>
+        <attrdefs>Producer defined</attrdefs>
+        <attrdomv>
+          <rdom>
+            <rdommin>1995</rdommin>
+            <rdommax>2016</rdommax>
+            <attrunit>Years (water year)</attrunit>
+          </rdom>
+        </attrdomv>
+      </attr>
+      <attr>
+        <attrlabl>Discharge..cms.</attrlabl>
+        <attrdef>Annual mean discharge in cubic meters per second (cms or m^3/s)</attrdef>
+        <attrdefs>Producer defined</attrdefs>
+        <attrdomv>
+          <udom>Range varies by dataset</udom>
+        </attrdomv>
+      </attr>
+      <attr>
+        <attrlabl>Conc..mg.L.</attrlabl>
+        <attrdef>Model estimate of annual mean concentration, in milligrams per liter (mg/L)</attrdef>
+        <attrdefs>Producer defined</attrdefs>
+        <attrdomv>
+          <udom>Range varies by dataset</udom>
+        </attrdomv>
+      </attr>
+      <attr>
+        <attrlabl>FN.Conc..mg.L.</attrlabl>
+        <attrdef>Model estimate of annual mean flow-normalized concentration in milligrams per liter (mg/L) (note: not shown for sites with less than 20 years of water-quality record)</attrdef>
+        <attrdefs>Producer defined</attrdefs>
+        <attrdomv>
+          <udom>Range varies by dataset</udom>
+        </attrdomv>
+      </attr>
+      <attr>
+        <attrlabl>Flux..kg.yr.</attrlabl>
+        <attrdef>Model estimate of the annual flux, in kilograms per year (kg/yr)</attrdef>
+        <attrdefs>Producer defined</attrdefs>
+        <attrdomv>
+          <udom>Range varies by dataset</udom>
+        </attrdomv>
+      </attr>
+      <attr>
+        <attrlabl>FN.Flux..kg.yr.</attrlabl>
+        <attrdef>Model estimate of the annual flow-normalized flux, in kilograms per year (kg/yr) (note: not shown for sites with less than 20 years of water-quality record)</attrdef>
+        <attrdefs>Producer defined</attrdefs>
+        <attrdomv>
+          <udom>Range varies by dataset</udom>
+        </attrdomv>
+      </attr>
+    </detailed>
+    <detailed>
+      <enttyp>
+        <enttypl>SeasonalResults.zip</enttypl>
+        <enttypd>Files containing WRTDS seasonal estimates of load for all sites and constituents by calendar year (multiple csv spreadsheets zipped together). Individual file nomenclature is as follows: USGS Station Number.Parameter Code (where, 00600 = Total nitrogen [nitrate + nitrite + ammonia + organic-N], water, unfiltered; 00607= Organic nitrogen, water, filtered; 00608 = Ammonia (NH3 + NH4+), water, filtered; 00613 = Nitrite, water, filtered;  00618 = Nitrate, water, filtered, milligrams per liter as nitrogen; 00623 = Ammonia plus organic nitrogen, water, filtered; 00625 = Ammonia plus organic nitrogen, water, unfiltered; 00631 = Nitrate plus nitrite, water, filtered ).Seas.csv.</enttypd>
+        <enttypds>Producer defined (For more information see: Hirsch, R.M., and De Cicco, L.A., 2015, User guide to Exploration and Graphics for RivEr Trends (EGRET) and dataRetrieval: R packages for hydrologic data (version 2.0, February 2015): U.S. Geological Survey Techniques and Methods book 4, chap. A10, 93 p., http://dx.doi.org/10.3133/tm4A10</enttypds>
+      </enttyp>
+      <attr>
+        <attrlabl>Year</attrlabl>
+        <attrdef>Calendar year</attrdef>
+        <attrdefs>Producer defined</attrdefs>
+        <attrdomv>
+          <rdom>
+            <rdommin>1994</rdommin>
+            <rdommax>2016</rdommax>
+            <attrunit>Years</attrunit>
+          </rdom>
+        </attrdomv>
+      </attr>
+      <attr>
+        <attrlabl>SeasonFluxTot</attrlabl>
+        <attrdef>Attributes are named with the season name followed by “FluxTot”. Model estimates of seasonal flux are provided in kilograms (kg). Note that values are derived from modeled mean daily flux during the season multiplied by the number of days in the season. For the winter season, the number of days varies depending on whether the year was a leap year. The seasons are defined as Winter (Jan, Feb, Mar), Spring (Apr, May, June), Summer (July, Aug, Sept), and Fall (Oct, Nov, Dec).</attrdef>
+        <attrdefs>Producer defined</attrdefs>
+        <attrdomv>
+          <udom>Range varies by dataset</udom>
+        </attrdomv>
+      </attr>
+    </detailed>
+  </eainfo>
+  <distinfo>
+    <distrib>
+      <cntinfo>
+        <cntperp>
+          <cntper>U.S. Geological Survey - ScienceBase</cntper>
+          <cntorg>U.S. Geological Survey - ScienceBase</cntorg>
+        </cntperp>
+        <cntaddr>
+          <addrtype>mailing and physical</addrtype>
+          <address>Denver Federal Center, Building 810, Mail Stop 302</address>
+          <city>Denver</city>
+          <state>CO</state>
+          <postal>80225</postal>
+          <country>USA</country>
+        </cntaddr>
+        <cntvoice>1-888-275-8747</cntvoice>
+        <cntemail>sciencebase@usgs.gov</cntemail>
+      </cntinfo>
+    </distrib>
+    <distliab>Although these data have been processed successfully on a computer system at the U.S. Geological Survey (USGS), no warranty expressed or implied is made regarding the display or utility of the data on any other system or for general or scientific purposes, nor shall the act of distribution constitute any such warranty. The USGS or the U.S. Government shall not be held liable for improper or incorrect use of the data described and/or contained herein. Any use of trade, firm, or product names is for descriptive purposes only and does not imply endorsement by the U.S. Government.</distliab>
+    <stdorder>
+      <digform>
+        <digtinfo>
+          <formname>eList.zip</formname>
+          <formvern>none</formvern>
+          <formspec>Zip, and .Rdata (R, or R and RStudio)</formspec>
+          <formcont>A list which specifies the objects that contain all of the data and the statistical model outputs. One eList is available for each site and constituent combination. 
+Once unzipped, the files need to be loaded to R or RStudio.  Interacting with these files may require the use of the EGRET package 2.6.0.  
+Installing this superseded version of EGRET might require the command: devtools::install_version("EGRET", version = "2.6.0", repos = "http://cran.us.r-project.org") in R or RStudio.</formcont>
+        </digtinfo>
+        <digtopt>
+          <onlinopt>
+            <computer>
+              <networka>
+                <networkr>https://www.sciencebase.gov/</networkr>
+              </networka>
+            </computer>
+          </onlinopt>
+        </digtopt>
+      </digform>
+      <fees>None</fees>
+    </stdorder>
+    <techpreq>The eList.zip files contain all of the input, output, and model information for each site and each water-quality constituent. 
+The files in the zip directory are of the .RData format, and can be viewed by loading into the R statistical package. This program is free to download at: 
+https://www.r-project.org/.</techpreq>
+  </distinfo>
+  <metainfo>
+    <metd>20200825</metd>
+    <metc>
+      <cntinfo>
+        <cntperp>
+          <cntper>John R Mullaney</cntper>
+          <cntorg>Northeast Region: NEW ENGLAND WSC CT OFC</cntorg>
+        </cntperp>
+        <cntpos>Hydrologist (Geol)</cntpos>
+        <cntaddr>
+          <addrtype>mailing and physical</addrtype>
+          <address>101 Pitkin Street</address>
+          <city>East Hartford</city>
+          <state>CT</state>
+          <postal>06108</postal>
+          <country>United States</country>
+        </cntaddr>
+        <cntvoice>860-291-6760</cntvoice>
+        <cntemail>jmullane@usgs.gov</cntemail>
+      </cntinfo>
+    </metc>
+    <metstdn>Content Standard for Digital Geospatial Metadata</metstdn>
+    <metstdv>FGDC-STD-001-1998</metstdv>
+  </metainfo>
+</metadata>

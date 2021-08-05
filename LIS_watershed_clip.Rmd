@@ -1,0 +1,21 @@
+---
+title: "LIS_watershed_ECHO_clip"
+author: "Alex Huddell"
+date: "8/5/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#load ECHO outfall and USGS WBD data
+```{r }
+summary(cars)
+```
+
+
+
+```{r }
+plot(pressure)
+```
