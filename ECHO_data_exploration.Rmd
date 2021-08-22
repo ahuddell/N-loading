@@ -1,0 +1,129 @@
+---
+title: "format ECHO data"
+author: "Alex Huddell"
+date: "7/28/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Load libraries and data
+
+```{r }
+require(tidyverse)
+require(lubridate)
+require(here)
+
+col_specifications<-('_fffffffffDdff') #compact string to specify column types
+
+dat<-readr::read_csv(file=paste0(here::here(), 
+                                 "/data/LIS_watershed_ECHO_effluent.csv"), 
+                     
+                     col_types = col_specifications)
+          
+```
+
+
+#Standardize data
+
+```{r pressure, echo=FALSE}
+levels(dat$Parameter)
+levels(dat$Units)
+
+dat<- dat %>% 
+    mutate(key=paste0(permit,"_",Outfall,"_",date))
+
+Flow_parameters <-
+  c(
+    "00056 - Flow rate",
+    "50047 - Flow, maximum during 24 hr period",
+    "74076 - Flow",
+    "51445 - Nitrogen, Total",
+    "00058 - Flow rate",
+    "50050 - Flow, in conduit or thru treatment plant",
+    "82220 - Flow, total",
+    "00059 - Flow rate, instantaneous",
+    "51061 - Flow (dry weather)"
+  )
+
+
+#cleaning up N parameters 
+dat<- dat %>% 
+     recode_factor(c(
+  "00600 - Nitrogen, total (as N)"="TN",
+  "00605 - Nitrogen, organic total (as N)"="ON",
+  "00610 - Nitrogen, ammonia total (as N)"="NH3",
+  "00615 - Nitrogen, nitrite total (as N)"="NO2",
+  "00620 - Nitrogen, nitrate total (as N)"="NO3",
+  "00625 - Nitrogen, Kjeldahl, total (as N)"="TN",
+  "51445 - Nitrogen, Total"="TN",
+  "00608 - Nitrogen, ammonia dissolved"="NH3",
+  "00630 - Nitrite + Nitrate total (as N)"="IN",
+  "00609 - Ammonia nitrogen, total, (as N) 30 day"="NH3",
+  "49579 - Nitrogen, total Kjeldahl"="TN",
+  "51447 - Nitrogen, Nitrite  Total"="NO2",
+  "51448 - Nitrogen, Nitrate  Total"="TN",
+  "51449 - Nitrogen, Kjeldahl  Total"="TN",
+  "51446 - Nitrogen, Ammonia  Total"="NH3",
+  "51087 - Nitrogen, Kjeldahl, total (TKN) (water)"="TN",
+  "51489 - Nitrogen, Total as NO3 + NH3"="IN",
+  "34726 - Nitrogen, ammonia, total (as NH3)"="NH3",
+  "51085 - Nitrogen, ammonia (NH3-N)"="NH3",
+  "51425 - Nitrogen, Total As N"="TN",
+  "51450 - Nitrite Plus Nitrate Total"="IN"
+))
+
+N_only <- dat %>%
+  pivot_wider(names_from = `Statistical Base Long Desc`, values_from =`value`) 
+
+#look at monthly average data to see if these seem comparable 
+monthly_mean_stats<-dat %>% filter(
+     `Statistical Base Long Desc` %in% c(
+      'Monthly Avg.',
+      'Average Value',
+      'Rolling Average',
+      '30 Day Average',
+      'Average',
+      '30 Day Arithmetic Mean',
+      '30 Day Arithmetic'
+    )) 
+
+ggplot(monthly_mean_stats, aes(`Statistical Base Long Desc` ,value)) +
+      geom_boxplot()+
+      ylim(0,5000)
+
+mod1<-(aov(monthly_mean_stats$value~
+        monthly_mean_stats$`Statistical Base Long Desc`))
+TukeyHSD(mod1)
+#there do not seem to be important differences between these categories, and I think we can combine them
+
+dat <- dat %>% recode_factor(
+  c(
+    'Monthly Avg.' = "monthly_mean",
+    'Average Value' = "monthly_mean",
+    'Rolling Average' = "monthly_mean",
+    '30 Day Average' = "monthly_mean",
+    'Average' = "monthly_mean",
+    '30 Day Arithmetic Mean' = "monthly_mean",
+    '30 Day Arithmetic' = "monthly_mean"
+  )
+)
+
+
+'12 Month Average'
+'Annual Average'
+
+
+'Daily Max.'
+'Monthly Maximum'
+'Monthly Average Minimum'
+
+'Monthly Total'
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
