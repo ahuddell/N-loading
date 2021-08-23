@@ -1,6 +1,7 @@
 
 
-library('echor')
+library(echor)
+library(tidyverse)
 
 df <- tibble::tibble("id" = c('CT0000086','CT0000434',
                               'CT0000582','CT0000744')
@@ -8,11 +9,11 @@ df <- tibble::tibble("id" = c('CT0000086','CT0000434',
                       
 df <- downloadDMRs(df, id)
 df<-df$dmr
-df<-as_tibble(df,.name_repair)
-df<-unnest(df)
+#df<-as_tibble(df)
+# df<-unnest(df)
 
 
-test<-df$dmr[[1]]
+test<-df[[1]]
 str(test)
 
 #link to data dictionary https://echo.epa.gov/help/reports/effluent-charts-help
@@ -26,7 +27,7 @@ levels(as.factor(test$parameter_code))
 levels(as.factor(test$parameter_desc))
 levels(as.factor(test$monitoring_location_code)) #we want to filter this to level 0 only, effluent gross
 levels(as.factor(test$monitoring_location_desc))
-levels(as.factor(test$standard_unit_desc)) #these are the units
+levels(as.factor(test$standard_unit_desc)) #these are the standardized units
 levels(as.factor(test$statistical_base_short_desc)) #this is the stat
 levels(as.factor(test$dmr_event_id)) # The unique ID identifying the DMR Event. A DMR Event is a DMR submission with a DMR period end date and DMR due date
 levels(as.factor(test$monitoring_period_end_date)) #this is the month
@@ -40,7 +41,12 @@ levels(as.factor(test$dmr_value_qualifier_code)) #this shows <>? qualifier codes
 
 
 
+# need to convert  # > levels(as.factor(test$standard_unit_desc)) #these are the standardized units
+# [1] "%"         "d"         "deg F"     "kg"        "kg/d"      "mg/L"      "MGD"  = millions of gallons per day    
+# [8] "MPN/100mL" "SU" 
 
+#to our standardize units to kg per month, million L per month, or milligram per liter 
+#eventually we may want to summarize as pounds per day
 
 params<-paste("Flow", "Flow rate" ,"Flow, maximum during 24 hr period", 
               "Nitrogen, ammonia total [as N]","Nitrogen, Kjeldahl, total [as N]",

@@ -18,7 +18,7 @@ require(tidyverse)
 require(lubridate)
 require(here)
 
-col_specifications<-('_fffffffffDdff') #compact string to specify column types
+col_specifications<-('fffffffffcdff') #compact string to specify column types
 
 dat<-readr::read_csv(file=paste0(here::here(), 
                                  "/data/LIS_watershed_ECHO_effluent.csv"), 
@@ -33,52 +33,200 @@ dat<-readr::read_csv(file=paste0(here::here(),
 ```{r pressure, echo=FALSE}
 levels(dat$Parameter)
 levels(dat$Units)
+dat$date<-mdy(dat$date)
+dat$day<-day(dat$date)
 
+dim(dat)
+
+  #add a key and number of days in month column, then filter out some problematic units
 dat<- dat %>% 
-    mutate(key=paste0(permit,"_",Outfall,"_",date))
+    mutate(key=paste0(permit,"_",Outfall,"_",date)) %>%
+        mutate(days_per_month=days_in_month(date)) %>%
+            mutate(day=day(date))%>%
+                filter(!Units == "(55) - Pounds")%>%
+                    filter(!Units =="(25) - Milliliters per Liter") #omitting the few observations of these unclear units 
+        
 
-Flow_parameters <-
-  c(
-    "00056 - Flow rate",
-    "50047 - Flow, maximum during 24 hr period",
-    "74076 - Flow",
-    "51445 - Nitrogen, Total",
-    "00058 - Flow rate",
-    "50050 - Flow, in conduit or thru treatment plant",
-    "82220 - Flow, total",
-    "00059 - Flow rate, instantaneous",
-    "51061 - Flow (dry weather)"
+#standardize units to kg per month, million L per month, or milligram per liter
+dat$kg_per_month <-
+  ifelse(
+    dat$Units == "(26) - Pounds per Day",
+    dat$value / 2.205 * dat$days_per_month, #converts pounds to kg and per day to per month
+    
+    ifelse(
+      dat$Units == "(01) - Kilograms per Day",
+      dat$value * dat$days_per_month, #converts per day to per month
+      
+      ifelse(
+        dat$Units == "(35) - Grams per Day",
+        dat$value*1000 * dat$days_per_month, #converts g to kg and per day to per month
+        
+        
+        ifelse(dat$Units == "(2R) - Pounds per Hour",
+               dat$value / 2.205 * 24 * dat$days_per_month, #converts pounds to kg and hours to months
+               
+                  ifelse(
+      dat$Units == "(9T) - Million Pounds per Day",
+      dat$value*10^6 / 2.205 * dat$days_per_month, #converts millions of pounds to kg per month
+    
+               NA)
+      )
+    )
+  )
+)
+
+
+
+dat$million_L_per_month <-
+  ifelse(
+    dat$Units == "(08) - Cubic Feet per Second",
+    dat$value * 28.317 / 10 ^ 6 * 60 * 60 * 24 * dat$days_per_month,
+    #converts cubic feet per second to million L per month
+    
+    
+    ifelse(
+      dat$Units == "(80) - Million Gallons per Month",
+      dat$value * 3.785,
+      # converts gallons to L
+      
+      ifelse(
+        dat$Units == "(1X) - Gallons per Hour",
+        dat$value / 10 ^ 6 * 3.785 * 24 * dat$days_per_month,
+        #converts gallons per hour to millions of L per month
+        
+        ifelse(
+          dat$Units == "(8D) - Gallons per Month",
+          dat$value  / 10 ^ 6 * 3.785,
+          #converts gallons to millions of L
+          
+          ifelse(
+            dat$Units == "(03) - Million Gallons per Day",
+            dat$value * 3.785 * dat$days_per_month,
+            #converts gallons to L and day to month
+            
+            ifelse(
+              dat$Units == "(78) - Gallons per Minute",
+              dat$value  / 10 ^ 6 * 3.785 * 60 * 24 * dat$days_per_month,
+              #converts gallons to millions of L and minute to month
+              
+              NA
+            )
+          )
+        )
+      )
+    )
   )
 
+  
+dat$mg_per_L <-
+    ifelse(
+    dat$Units == "(19) - Milligrams per Liter",
+    dat$value,
+    
+    ifelse(dat$Units == "(28) - Micrograms per Liter",
+           dat$value / 1000, #convert from micrograms to milligram
+           
+           NA)
+  )
 
-#cleaning up N parameters 
-dat<- dat %>% 
-     recode_factor(c(
-  "00600 - Nitrogen, total (as N)"="TN",
-  "00605 - Nitrogen, organic total (as N)"="ON",
-  "00610 - Nitrogen, ammonia total (as N)"="NH3",
-  "00615 - Nitrogen, nitrite total (as N)"="NO2",
-  "00620 - Nitrogen, nitrate total (as N)"="NO3",
-  "00625 - Nitrogen, Kjeldahl, total (as N)"="TN",
-  "51445 - Nitrogen, Total"="TN",
-  "00608 - Nitrogen, ammonia dissolved"="NH3",
-  "00630 - Nitrite + Nitrate total (as N)"="IN",
-  "00609 - Ammonia nitrogen, total, (as N) 30 day"="NH3",
-  "49579 - Nitrogen, total Kjeldahl"="TN",
-  "51447 - Nitrogen, Nitrite  Total"="NO2",
-  "51448 - Nitrogen, Nitrate  Total"="TN",
-  "51449 - Nitrogen, Kjeldahl  Total"="TN",
-  "51446 - Nitrogen, Ammonia  Total"="NH3",
-  "51087 - Nitrogen, Kjeldahl, total (TKN) (water)"="TN",
-  "51489 - Nitrogen, Total as NO3 + NH3"="IN",
-  "34726 - Nitrogen, ammonia, total (as NH3)"="NH3",
-  "51085 - Nitrogen, ammonia (NH3-N)"="NH3",
-  "51425 - Nitrogen, Total As N"="TN",
-  "51450 - Nitrite Plus Nitrate Total"="IN"
-))
+#cleaning up duplicate nitrogen and flow parameters 
+dat$Parameter <- recode(dat$Parameter,
+    #Nitrogen parameters
+    "00600 - Nitrogen, total (as N)" = "TN",
+    "00605 - Nitrogen, organic total (as N)" = "ON",
+    "00610 - Nitrogen, ammonia total (as N)" = "NH3",
+    "00615 - Nitrogen, nitrite total (as N)" = "NO2",
+    "00620 - Nitrogen, nitrate total (as N)" = "NO3",
+    "00625 - Nitrogen, Kjeldahl, total (as N)" = "TN",
+    "51445 - Nitrogen, Total" = "TN",
+    "00608 - Nitrogen, ammonia dissolved" = "NH3",
+    "00630 - Nitrite + Nitrate total (as N)" = "IN",
+    "00609 - Ammonia nitrogen, total, (as N) 30 day" = "NH3",
+    "49579 - Nitrogen, total Kjeldahl" = "TN",
+    "51447 - Nitrogen, Nitrite  Total" = "NO2",
+    "51448 - Nitrogen, Nitrate  Total" = "TN",
+    "51449 - Nitrogen, Kjeldahl  Total" = "TN",
+    "51446 - Nitrogen, Ammonia  Total" = "NH3",
+    "51087 - Nitrogen, Kjeldahl, total (TKN) (water)" = "TN",
+    "51489 - Nitrogen, Total as NO3 + NH3" = "IN",
+    "34726 - Nitrogen, ammonia, total (as NH3)" = "NH3",
+    "51085 - Nitrogen, ammonia (NH3-N)" = "NH3",
+    "51425 - Nitrogen, Total As N" = "TN",
+    "51450 - Nitrite Plus Nitrate Total" = "IN", 
+    #flow parameters
+    "00056 - Flow rate" = "flow_rate",
+    "50047 - Flow, maximum during 24 hr period" = "flow_max_24h",
+    "74076 - Flow" = "flow_rate",
+    "00058 - Flow rate" = "flow_rate",
+    "50050 - Flow, in conduit or thru treatment plant" = "flow_rate",
+    "82220 - Flow, total" = "flow_total",
+    "00059 - Flow rate, instantaneous" = "flow_rate",
+    "51061 - Flow (dry weather)" = "flow_dry"
+  )
+
+levels(dat$Parameter)
+
+
+dat$stat <- recode(dat$`Statistical Base Long Desc`,
+    'Monthly Avg.' = "monthly_mean",
+    'Average Value' = "monthly_mean",
+    'Rolling Average' = "monthly_mean",
+    '30 Day Average' = "monthly_mean",
+    'Average' = "monthly_mean",
+    '30 Day Arithmetic Mean' = "monthly_mean",
+    '30 Day Arithmetic' = "monthly_mean"
+  )
+levels(dat$stat)
+
+# ##########
+#   "Monthly Avg."             
+#   "Daily Max."              
+#   "Average Value"           
+# "Instantaneous Maximum"   
+# "Rolling Average"          
+# "Daily Average"           
+#  "Weekly Avg."            
+# "Weekly Maximum"         
+# "1 Day Average"           
+#  "Maximum"              
+# "Daily Min."              
+# "Maximum (Data Migration)"
+#  "Average (Data Migration)"
+# "30 Day Average"          
+# "Average"                 
+# "Semi-Annual Average"    
+# "Quarterly Average"       
+# "Quarterly Maximum"       
+# "Monthly Maximum"      
+# "Monthly Geometric"        
+# "Discharged"              
+#  "Instantaneous Minimum" 
+# "Annual Average"           
+# "Monthly Average Minimum" 
+# "Annual Maximum"          
+# "12 Month Average"         
+# "Monthly Total"           
+#  "Maximum Hourly Rate"    
+# "Indiv 12 Mo Rolling Ave"  
+# "30 Day Arithmetic Mean"  
+#  "30 Day Arithmetic"    
+#  ############
+
+'12 Month Average'
+'Annual Average'
+
+
+'Daily Max.'
+'Monthly Maximum'
+'Monthly Average Minimum'
+
+'Monthly Total'
+
 
 N_only <- dat %>%
-  pivot_wider(names_from = `Statistical Base Long Desc`, values_from =`value`) 
+  pivot_wider(names_from = `Statistical Base Long Desc`, values_from =mg_per_L) %>%
+  pivot_wider(names_from = `Statistical Base Long Desc`, values_from=million_L_per_month) %>%
+  pivot_wider(names_from = `Statistical Base Long Desc`, values_from=kg_per_month)
 
 #look at monthly average data to see if these seem comparable 
 monthly_mean_stats<-dat %>% filter(
@@ -101,28 +249,6 @@ mod1<-(aov(monthly_mean_stats$value~
 TukeyHSD(mod1)
 #there do not seem to be important differences between these categories, and I think we can combine them
 
-dat <- dat %>% recode_factor(
-  c(
-    'Monthly Avg.' = "monthly_mean",
-    'Average Value' = "monthly_mean",
-    'Rolling Average' = "monthly_mean",
-    '30 Day Average' = "monthly_mean",
-    'Average' = "monthly_mean",
-    '30 Day Arithmetic Mean' = "monthly_mean",
-    '30 Day Arithmetic' = "monthly_mean"
-  )
-)
-
-
-'12 Month Average'
-'Annual Average'
-
-
-'Daily Max.'
-'Monthly Maximum'
-'Monthly Average Minimum'
-
-'Monthly Total'
 
 ```
 
