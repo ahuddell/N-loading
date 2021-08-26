@@ -1,0 +1,62 @@
+---
+title: "explore ECHO data"
+author: "Alex Huddell"
+date: "7/28/2021"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+editor_options:
+  chunk_output_type: console
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Load libraries and data
+
+```{r }
+library(tidyverse)
+library(lubridate)
+library(here)
+
+col_specifications<-('ffffffcdfff') #compact string to specify column types
+
+dat<-readr::read_csv(file=paste0(here::here(), 
+                                 "/data/LIS_watershed_ECHO_effluent.csv"), 
+                     
+                     col_types = col_specifications)
+
+          
+```
+
+
+```{r}
+"ECHO_data_summarized_maximum_values.csv"
+```
+
+
+
+
+
+
+```{r}
+# 
+# #look at monthly average data to see if these seem comparable 
+# monthly_mean_stats<-dat %>% filter(
+#      stat %in% c(mg_per_L, million_L_per_month,kg_per_month)) 
+# 
+# ggplot(monthly_mean_stats, aes(`Statistical Base Long Desc` ,value)) +
+#       geom_boxplot()+
+#       ylim(0,5000)
+# 
+# mod1<-(aov(monthly_mean_stats$value~
+#         monthly_mean_stats$`Statistical Base Long Desc`))
+# TukeyHSD(mod1)
+# #there do not seem to be important differences between these categories, and I 
+# #think we can combine them
+
+
+```
