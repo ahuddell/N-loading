@@ -1,0 +1,28 @@
+---
+title: "LIS_watershed_ECHO_clip"
+author: "Alex Huddell"
+date: "8/5/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(sf)
+require(here)
+
+```
+
+#load ECHO outfall and USGS WBD data
+```{r }
+
+fc <- sf::st_read("C:\Users\alexh\Documents\EPA\LIS watershed\WBD_National_GDB\WBD_National_GDB.gdb", layer = "WBDHU8")
+#Original source URI: C:\Users\alexh\Documents\EPA\LIS #watershed\WBD_National_GDB\WBD_National_GDB.gdb|layername=WBDHU8
+
+
+```
+
+
+
+```{r }
+plot(pressure)
+```
