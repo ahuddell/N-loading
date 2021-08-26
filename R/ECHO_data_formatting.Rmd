@@ -224,29 +224,37 @@ test
 Here we pivot the data wider and summarize duplicates by min, mean, and max.
 
 ```{r}
-#pivot wider 
+#function to id columns with all NAs
+not_all_na <- function(x) any(!is.na(x))
+
+#pivot wider and then remove columns with only NAs (since some parameter/unit combinations 
+#don't make sense)
 max_vals<-dat %>%
   pivot_wider(names_from = c(stat, param_simple), 
               values_from =c(mg_per_L, million_L_per_month,kg_per_month),
-              values_fn = max)
+              values_fn = max) %>%
+  select_if(not_all_na)
 
 mean_vals<-dat %>%
   pivot_wider(names_from = c(stat, param_simple), 
               values_from =c(mg_per_L, million_L_per_month,kg_per_month),
-              values_fn = mean)
+              values_fn = mean)%>%
+  select_if(not_all_na)
+
 min_vals<-dat %>%
   pivot_wider(names_from = c(stat, param_simple), 
               values_from =c(mg_per_L, million_L_per_month,kg_per_month),
-              values_fn = max)
+              values_fn = max)%>%
+  select_if(not_all_na)
 
 
 max_vals
 min_vals
 mean_vals
 
-write.csv(max_vals, file=paste0(here::here(),  "/data/ECHO_data_summarized_maximum_values.csv",row.names = F))
-write.csv(min_vals, file=paste0(here::here(),  "/data/ECHO_data_summarized_minimum_values.csv", row.names = F))
-write.csv(mean_vals, file=paste0(here::here(),  "/data/ECHO_data_summarized_mean_values.csv", row.names = F))
+write.csv(max_vals, file=here("data", "ECHO_data_summarized_maximum_values.csv"),row.names = F)
+write.csv(min_vals, file=here("data", "ECHO_data_summarized_minimum_values.csv"), row.names = F)
+write.csv(mean_vals, file=here("data","ECHO_data_summarized_mean_values.csv"), row.names = F)
 
 
 ```

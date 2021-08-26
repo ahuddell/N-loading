@@ -22,18 +22,21 @@ library(tidyverse)
 library(lubridate)
 library(here)
 
-col_specifications<-('ffffffcdfff') #compact string to specify column types
 
-dat<-readr::read_csv(file=paste0(here::here(), 
-                              "/data/ECHO_data_summarized_maximum_values.csv"), 
-                     
-                     col_types = col_specifications)
+min<-read_csv(file=here("data","ECHO_data_summarized_minimum_values.csv"))
+names(min)
+
+#many of the columns are only NA values from the pivot
 
           
 ```
 
 
 ```{r}
+ggplot(min, aes(date,kg_per_month_mean_TN))+
+  geom_point()
+
+
 
 ```
 
