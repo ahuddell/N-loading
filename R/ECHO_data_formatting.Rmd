@@ -48,6 +48,7 @@ dat <- dat %>%
   distinct() #removing duplicated values
 
 dim(dat)
+
 ```
 
 In the next chunk, we reduce the number of units to three--one for flow, one for 
@@ -74,13 +75,13 @@ dat <- dat %>% mutate(
       # converts cubic feet per second to million L per month
       Units == "(80) - Million Gallons per Month" ~ value * 3.785,
       # converts gallons to L
-      Units == "(1X) - Gallons per Hour" ~ value / 10 ^ 6 * 3.785 * 24 * dat$days_per_month,
+      Units == "(1X) - Gallons per Hour" ~ value / 10 ^ 6 * 3.785 * 24 * days_per_month,
       # converts gallons per hour to millions of L per month
       Units == "(8D) - Gallons per Month" ~ value / 10 ^ 6 * 3.785,
       # converts gallons to millions of L
-      Units == "(03) - Million Gallons per Day" ~ value * 3.785 * dat$days_per_month,
+      Units == "(03) - Million Gallons per Day" ~ value * 3.785 * days_per_month,
       # converts gallons to L and day to month
-      Units == "(78) - Gallons per Minute" ~ value / 10 ^ 6 * 3.785 * 60 * 24 * dat$days_per_month,
+      Units == "(78) - Gallons per Minute" ~ value / 10 ^ 6 * 3.785 * 60 * 24 * days_per_month,
       # converts gallons to millions of L and minute to month
     )
 )
@@ -128,9 +129,9 @@ dat$param_simple <- recode(dat$Parameter,
     "50047 - Flow, maximum during 24 hr period" = "flow_max_24h",
     "74076 - Flow" = "flow_rate",
     "00058 - Flow rate" = "flow_rate",
-    "50050 - Flow, in conduit or thru treatment plant" = "flow_rate",
+    "50050 - Flow, in conduit or thru treatment plant" = "flow_rate", #questionable
     "82220 - Flow, total" = "flow_total",
-    "00059 - Flow rate, instantaneous" = "flow_rate",
+    "00059 - Flow rate, instantaneous" = "flow_rate", #questionable
     "51061 - Flow (dry weather)" = "flow_dry"
   )
 
@@ -205,7 +206,7 @@ This is an example of the duplicate values that are complicate reshaping the dat
 #testing it out on test case to demonstrate issues with pivoting
 dat<- filter(dat, stat == "mean") #beginning with only mean summary statistics
 
-test_case<-dat%>%  filter(key == "CT0000086_1_1998-04-30") %>% distinct()
+test_case<-dat%>%  filter(key == "CT0000086_1_1998-04-30") %>%   distinct()
 
 test <- 
   dat %>%
