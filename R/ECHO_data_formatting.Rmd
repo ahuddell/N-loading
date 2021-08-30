@@ -44,7 +44,9 @@ dat <- dat %>%
   mutate(days_per_month = days_in_month(date)) %>%
   mutate(day = day(date)) %>%
   filter(!Units == "(55) - Pounds") %>%
-  filter(!Units == "(25) - Milliliters per Liter") %>%# omitting the few observations of these unclear units
+  filter(!Units == "(25) - Milliliters per Liter") %>%
+  filter(!Parameter == "51450 - Nitrite Plus Nitrate Total") %>%
+  # omitting the few observations of these unclear units and Parameters
   distinct() #removing duplicated values
 
 dim(dat)
@@ -93,6 +95,14 @@ dat <- dat %>% mutate(
    Units == "(28) - Micrograms per Liter" ~ value / 1000, #convert from micrograms to milligram
     )
   )
+
+#converting all N parameters to mass terms of nitrogen and not others (i.e. ammonia, nitrite, etc.)
+
+dat<-dat %>%
+  case_when(
+    Parameter=="00608 - Nitrogen, ammonia dissolved" ~ value *   14.0067/17.031,
+  Parameter== "34726 - Nitrogen, ammonia, total (as NH3)" ~ value *   14.0067/17.031)
+
 ```
 Next, we reduce the number of nitrogen to the following: total nitrogen "TN",
 organic nitrogen "ON", ammonia "NH3", nitrite "NO2", nitrate "NO3", and inorganic N "IN".
