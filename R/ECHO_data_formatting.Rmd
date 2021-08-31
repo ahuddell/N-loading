@@ -39,6 +39,7 @@ dat$day<-day(dat$date)
 
 dim(dat)
 
+
 # add a key and number of days in month column, then filter out some problematic units
 dat <- dat %>%
   mutate(days_per_month = days_in_month(date)) %>%
@@ -68,6 +69,9 @@ dat <- dat %>% mutate(
     )
 )
 
+#evaluating how many observations report loads
+sum(!is.na(dat$kg_per_month))/nrow(dat)*100
+
 dat <- dat %>% mutate(
   million_L_per_month =
     case_when(
@@ -89,7 +93,7 @@ dat <- dat %>% mutate(
 )
   
 dat <- dat %>% mutate(
-  mg_per_L=
+  mg_N_per_L=
     case_when(
    Units == "(19) - Milligrams per Liter" ~ value,
    Units == "(28) - Micrograms per Liter" ~ value / 1000, #convert from micrograms to milligram
@@ -98,10 +102,11 @@ dat <- dat %>% mutate(
 
 #converting all N parameters to mass terms of nitrogen and not others (i.e. ammonia, nitrite, etc.)
 
-dat<-dat %>%
-  case_when(
-    Parameter=="00608 - Nitrogen, ammonia dissolved" ~ value *   14.0067/17.031,
-  Parameter== "34726 - Nitrogen, ammonia, total (as NH3)" ~ value *   14.0067/17.031)
+dat$value<-  ifelse(
+    dat$Parameter=="00608 - Nitrogen, ammonia dissolved", dat$value *14.0067/17.031, dat$value)
+
+dat$value<- ifelse(
+  dat$Parameter== "34726 - Nitrogen, ammonia, total (as NH3)", dat$value * 14.0067/17.031, dat$value)
 
 ```
 Next, we reduce the number of nitrogen to the following: total nitrogen "TN",
@@ -146,6 +151,8 @@ dat$param_simple <- recode(dat$Parameter,
   )
 
 levels(dat$param_simple)
+
+
 
 ```
 
@@ -212,9 +219,7 @@ levels(dat$stat)
 This is an example of the duplicate values that are complicate reshaping the data from long to wide formatting. In this case, for key: CT0000086_1_1998-04-30.
 
 ```{r, echo=T}
-#need to look into duplicates where there are multiple values for different stat columns
 #testing it out on test case to demonstrate issues with pivoting
-dat<- filter(dat, stat == "mean") #beginning with only mean summary statistics
 
 test_case<-dat%>%  filter(key == "CT0000086_1_1998-04-30") %>%   distinct()
 
@@ -223,7 +228,7 @@ test <-
   filter(key == "CT0000086_1_1998-04-30")%>%
   filter(stat=="mean")%>%
   select(key, permit, Outfall, date,param_simple, stat, days_per_month,
-         mg_per_L, million_L_per_month, kg_per_month) %>%
+         mg_N_per_L, million_L_per_month, kg_per_month) %>%
   distinct()
 
 
@@ -232,31 +237,186 @@ test
 
 ```
 
-Here we pivot the data wider and summarize duplicates by min, mean, and max.
+Here we pivot the data wider and summarize duplicates by min, mean, and max. Then we calculate loads based on the concentrations and flow data, and remove the concentration and flow columns after we use them.
 
 ```{r}
 #function to id columns with all NAs
 not_all_na <- function(x) any(!is.na(x))
 
-#pivot wider and then remove columns with only NAs (since some parameter/unit combinations 
-#don't make sense)
+#pivot wider and then remove columns with only NAs (since some parameter/unit combinations that don't make sense)
 max_vals<-dat %>%
-  pivot_wider(names_from = c(stat, param_simple), 
-              values_from =c(mg_per_L, million_L_per_month,kg_per_month),
+  pivot_wider(names_from = param_simple, 
+              values_from =c(mg_N_per_L, million_L_per_month,kg_per_month),
               values_fn = max) %>%
   select_if(not_all_na)
 
+names(max_vals)
+
+#evaluating the % of observations that report TN
+sum(!is.na(max_vals$mg_N_per_L_TN))/nrow(max_vals)*100
+
+
+max_vals <- max_vals %>%
+  mutate(
+    kg_N_TN_per_month = mg_N_per_L_TN * ifelse (
+      is.na(million_L_per_month_flow_rate),
+      million_L_per_month_flow_total,
+      million_L_per_month_flow_rate
+    )
+  ) %>%
+  mutate(
+    kg_N_ON_per_month = mg_N_per_L_ON * ifelse (
+      is.na(million_L_per_month_flow_rate),
+      million_L_per_month_flow_total,
+      million_L_per_month_flow_rate
+    )
+  ) %>%
+  mutate(
+    kg_N_NH3_per_month = mg_N_per_L_NH3 * ifelse (
+      is.na(million_L_per_month_flow_rate),
+      million_L_per_month_flow_total,
+      million_L_per_month_flow_rate
+    )
+  ) %>%
+  mutate(
+    kg_N_NO2_per_month = mg_N_per_L_NO2 * ifelse (
+      is.na(million_L_per_month_flow_rate),
+      million_L_per_month_flow_total,
+      million_L_per_month_flow_rate
+    )
+  ) %>%
+  mutate(
+    kg_N_NO3_per_month = mg_N_per_L_NO3 * ifelse (
+      is.na(million_L_per_month_flow_rate),
+      million_L_per_month_flow_total,
+      million_L_per_month_flow_rate
+    )
+  ) %>%
+  mutate(
+    kg_N_IN_per_month = mg_N_per_L_IN * ifelse (
+      is.na(million_L_per_month_flow_rate),
+      million_L_per_month_flow_total,
+      million_L_per_month_flow_rate
+    )
+  ) %>%
+  select(
+    -mg_N_per_L_TN, -mg_N_per_L_ON, -mg_N_per_L_NH3, -mg_N_per_L_NO2, -mg_N_per_L_NO3, -mg_N_per_L_IN,
+    -million_L_per_month_flow_rate,-million_L_per_month_flow_total
+  )
+
+
+
 mean_vals<-dat %>%
-  pivot_wider(names_from = c(stat, param_simple), 
-              values_from =c(mg_per_L, million_L_per_month,kg_per_month),
+  pivot_wider(names_from = param_simple, 
+              values_from =c(mg_N_per_L, million_L_per_month,kg_per_month),
               values_fn = mean)%>%
   select_if(not_all_na)
 
+names(mean_vals)
+
+mean_vals <- mean_vals %>%
+  mutate(
+    kg_N_TN_per_month = mg_N_per_L_TN * ifelse (
+      is.na(million_L_per_month_flow_rate),
+      million_L_per_month_flow_total,
+      million_L_per_month_flow_rate
+    )
+  ) %>%
+  mutate(
+    kg_N_ON_per_month = mg_N_per_L_ON * ifelse (
+      is.na(million_L_per_month_flow_rate),
+      million_L_per_month_flow_total,
+      million_L_per_month_flow_rate
+    )
+  ) %>%
+  mutate(
+    kg_N_NH3_per_month = mg_N_per_L_NH3 * ifelse (
+      is.na(million_L_per_month_flow_rate),
+      million_L_per_month_flow_total,
+      million_L_per_month_flow_rate
+    )
+  ) %>%
+  mutate(
+    kg_N_NO2_per_month = mg_N_per_L_NO2 * ifelse (
+      is.na(million_L_per_month_flow_rate),
+      million_L_per_month_flow_total,
+      million_L_per_month_flow_rate
+    )
+  ) %>%
+  mutate(
+    kg_N_NO3_per_month = mg_N_per_L_NO3 * ifelse (
+      is.na(million_L_per_month_flow_rate),
+      million_L_per_month_flow_total,
+      million_L_per_month_flow_rate
+    )
+  ) %>%
+  mutate(
+    kg_N_IN_per_month = mg_N_per_L_IN * ifelse (
+      is.na(million_L_per_month_flow_rate),
+      million_L_per_month_flow_total,
+      million_L_per_month_flow_rate
+    )
+  ) %>%
+  select(
+    -mg_N_per_L_TN, -mg_N_per_L_ON, -mg_N_per_L_NH3, -mg_N_per_L_NO2, -mg_N_per_L_NO3, -mg_N_per_L_IN,
+    -million_L_per_month_flow_rate,-million_L_per_month_flow_total
+  )
+
 min_vals<-dat %>%
-  pivot_wider(names_from = c(stat, param_simple), 
-              values_from =c(mg_per_L, million_L_per_month,kg_per_month),
+  pivot_wider(names_from = param_simple, 
+              values_from =c(mg_N_per_L, million_L_per_month,kg_per_month),
               values_fn = max)%>%
   select_if(not_all_na)
+
+names(min_vals)
+
+min_vals <- min_vals %>%
+  mutate(
+    kg_N_TN_per_month = mg_N_per_L_TN * ifelse (
+      is.na(million_L_per_month_flow_rate),
+      million_L_per_month_flow_total,
+      million_L_per_month_flow_rate
+    )
+  ) %>%
+  mutate(
+    kg_N_ON_per_month = mg_N_per_L_ON * ifelse (
+      is.na(million_L_per_month_flow_rate),
+      million_L_per_month_flow_total,
+      million_L_per_month_flow_rate
+    )
+  ) %>%
+  mutate(
+    kg_N_NH3_per_month = mg_N_per_L_NH3 * ifelse (
+      is.na(million_L_per_month_flow_rate),
+      million_L_per_month_flow_total,
+      million_L_per_month_flow_rate
+    )
+  ) %>%
+  mutate(
+    kg_N_NO2_per_month = mg_N_per_L_NO2 * ifelse (
+      is.na(million_L_per_month_flow_rate),
+      million_L_per_month_flow_total,
+      million_L_per_month_flow_rate
+    )
+  ) %>%
+  mutate(
+    kg_N_NO3_per_month = mg_N_per_L_NO3 * ifelse (
+      is.na(million_L_per_month_flow_rate),
+      million_L_per_month_flow_total,
+      million_L_per_month_flow_rate
+    )
+  ) %>%
+  mutate(
+    kg_N_IN_per_month = mg_N_per_L_IN * ifelse (
+      is.na(million_L_per_month_flow_rate),
+      million_L_per_month_flow_total,
+      million_L_per_month_flow_rate
+    )
+  ) %>%
+  select(
+    -mg_N_per_L_TN, -mg_N_per_L_ON, -mg_N_per_L_NH3, -mg_N_per_L_NO2, -mg_N_per_L_NO3, -mg_N_per_L_IN,
+    -million_L_per_month_flow_rate,-million_L_per_month_flow_total
+  )
 
 
 max_vals
