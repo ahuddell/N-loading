@@ -21,20 +21,21 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(lubridate)
 library(here)
+library(naniar)
 
+mean<-read_csv(file=here("data","ECHO_data_summarized_mean_values.csv"))
+names(mean)
 
-min<-read_csv(file=here("data","ECHO_data_summarized_minimum_values.csv"))
-names(min)
+#the kg_per_month_TN..IN are from the units that were loads to begin with
+#the kg_N_TN_per_month...kg_N_IN_per_month" are the ones we calculated
 
-#many of the columns are only NA values from the pivot
+str(mean$kg_per_month_IN)
 
-          
 ```
 
 
 ```{r}
-ggplot(min, aes(date,kg_per_month_mean_TN))+
-  geom_point()
+gg_miss_var(min, show_pct = TRUE)
 
 
 
