@@ -48,9 +48,33 @@ levels(as.factor(test$dmr_value_qualifier_code)) #this shows <>? qualifier codes
 #to our standardize units to kg per month, million L per month, or milligram per liter 
 #eventually we may want to summarize as pounds per day
 
-params<-paste("Flow", "Flow rate" ,"Flow, maximum during 24 hr period", 
-              "Nitrogen, ammonia total [as N]","Nitrogen, Kjeldahl, total [as N]",
-              "Nitrogen, nitrate total [as N]","Nitrogen, nitrite total [as N]",
-              "Nitrogen, organic total [as N]", "Nitrogen, Total",
-              "Nitrogen, total [as N]")
+
+params <- c(
+  "Flow",
+  "Flow rate" ,
+  "Flow, maximum during 24 hr period",
+  "Nitrogen, ammonia total [as N]",
+  "Nitrogen, Kjeldahl, total [as N]",
+  "Nitrogen, nitrate total [as N]",
+  "Nitrogen, nitrite total [as N]",
+  "Nitrogen, organic total [as N]",
+  "Nitrogen, Total",
+  "Nitrogen, total [as N]"
+)
+
+
+test2 <- test %>%
+  select(
+    npdes_id,
+    outfall,
+    perm_feature_nmbr,
+    parameter_desc,
+    standard_unit_desc,
+    monitoring_period_end_date,
+    dmr_value_standard_units
+  ) %>%
+  filter(monitoring_location_code == "0") %>%
+  filter(parameter_desc  %in% params)
+
+
 
