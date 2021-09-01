@@ -239,21 +239,40 @@ test
 
 Here we pivot the data wider and summarize duplicates by min, mean, and max. Then we calculate loads based on the concentrations and flow data, and remove the concentration and flow columns after we use them.
 
+First, we report the detailed dataframes with all of the Parameter and Statistical Base Code Desc information. Then we report a simpler dataframe with fewer rows.
 ```{r}
 #function to id columns with all NAs
 not_all_na <- function(x) any(!is.na(x))
 
 #pivot wider and then remove columns with only NAs (since some parameter/unit combinations that don't make sense)
-max_vals<-dat %>%
+max_vals_detailed<-dat %>%
   pivot_wider(names_from = param_simple, 
               values_from =c(mg_N_per_L, million_L_per_month,kg_per_month),
               values_fn = max) %>%
   select_if(not_all_na)
 
-names(max_vals)
+names(max_vals_detailed)
 
 #evaluating the % of observations that report TN
-sum(!is.na(max_vals$mg_N_per_L_TN))/nrow(max_vals)*100
+sum(!is.na(max_vals_detailed$mg_N_per_L_TN))/nrow(max_vals_detailed)*100
+
+#simpler dataframe with fewer rows
+max_vals <- dat %>%
+  select(!Parameter,!Units,!`Statistical Base Long Desc`,!day) %>%
+  pivot_wider(
+    names_from = param_simple,
+    values_from = c(mg_N_per_L, million_L_per_month, kg_per_month),
+    values_fn = max
+  ) %>%
+  select_if(not_all_na) %>%
+  group_by(key)%>%
+  summarize(me)
+
+dim(max_vals)
+
+##
+
+
 
 
 max_vals <- max_vals %>%
@@ -301,7 +320,7 @@ max_vals <- max_vals %>%
   ) %>%
   select(
     -mg_N_per_L_TN, -mg_N_per_L_ON, -mg_N_per_L_NH3, -mg_N_per_L_NO2, -mg_N_per_L_NO3, -mg_N_per_L_IN,
-    -million_L_per_month_flow_rate,-million_L_per_month_flow_total
+    -million_L_per_month_flow_rate,-million_L_per_month_flow_total, -stat
   )
 
 
@@ -359,7 +378,7 @@ mean_vals <- mean_vals %>%
   ) %>%
   select(
     -mg_N_per_L_TN, -mg_N_per_L_ON, -mg_N_per_L_NH3, -mg_N_per_L_NO2, -mg_N_per_L_NO3, -mg_N_per_L_IN,
-    -million_L_per_month_flow_rate,-million_L_per_month_flow_total
+    -million_L_per_month_flow_rate,-million_L_per_month_flow_total, -stat
   )
 
 min_vals<-dat %>%
@@ -415,9 +434,19 @@ min_vals <- min_vals %>%
   ) %>%
   select(
     -mg_N_per_L_TN, -mg_N_per_L_ON, -mg_N_per_L_NH3, -mg_N_per_L_NO2, -mg_N_per_L_NO3, -mg_N_per_L_IN,
-    -million_L_per_month_flow_rate,-million_L_per_month_flow_total
+    -million_L_per_month_flow_rate,-million_L_per_month_flow_total,-million_L_per_month_flow_max_24h, -stat
   )
 
+#############test case to demonstrate NAs
+test2<-filter(max_vals, key=="CT0000086_1_1998-04-30")
+test2
+
+#code to remove rows with NAs in all of the value columns
+cols_to_check = c("kg_per_month_TN","kg_per_month_NH3","kg_per_month_NO2", "kg_per_month_NO3", "kg_per_month_IN")
+
+test2 %>% 
+  filter(!if_all(cols_to_check, ~ is.na(.x)))
+#####################################
 
 max_vals
 min_vals
@@ -430,5 +459,10 @@ write.csv(mean_vals, file=here("data","ECHO_data_summarized_mean_values.csv"), r
 
 ```
 
+Evaluate how many rows there are per key. There are often 24--so we need to simplify the output further.
+```{r}
+max_vals%>%
+  group_by(key) %>%
+  tally()
 
-
+```
