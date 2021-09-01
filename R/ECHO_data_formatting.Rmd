@@ -70,7 +70,12 @@ dat <- dat %>% mutate(
 )
 
 #evaluating how many observations report loads
-sum(!is.na(dat$kg_per_month))/nrow(dat)*100
+load_report_tally<-dat%>%
+  group_by(key)%>%
+  tally(!is.na(kg_per_month))
+
+sum((load_report_tally$n>0))/nrow(load_report_tally)*100
+#only about 10% of DMRs report loads
 
 dat <- dat %>% mutate(
   million_L_per_month =
@@ -152,6 +157,13 @@ dat$param_simple <- recode(dat$Parameter,
 
 levels(dat$param_simple)
 
+levels<-dat %>%
+  group_by(param_simple) %>%
+  tally()
+
+ggplot(levels, aes(param_simple,n))+
+  geom_col() +
+  ylab("count of observations")
 
 
 ```
@@ -167,6 +179,15 @@ statistics over others in case of duplication within the same permit, month
 reported, and outfall.
 
 ```{r}
+levels2<-dat %>%
+  group_by(`Statistical Base Long Desc`) %>%
+  tally()
+
+ggplot(levels2, aes(`Statistical Base Long Desc`,n))+
+  geom_col() +
+  ylab("count of observations")+
+  theme(axis.text.x=element_text(angle = 60, hjust=1))
+  
 
 dat <- dat %>% filter(!`Statistical Base Long Desc` %in% c(
   "1 Day Average",
@@ -258,15 +279,14 @@ sum(!is.na(max_vals_detailed$mg_N_per_L_TN))/nrow(max_vals_detailed)*100
 
 #simpler dataframe with fewer rows
 max_vals <- dat %>%
-  select(!Parameter,!Units,!`Statistical Base Long Desc`,!day) %>%
+  select(!c(Parameter, `Monitoring Location`, Units, `Statistical Base Long Desc`, Column, day,days_per_month) ) %>%
   pivot_wider(
     names_from = param_simple,
     values_from = c(mg_N_per_L, million_L_per_month, kg_per_month),
     values_fn = max
   ) %>%
   select_if(not_all_na) %>%
-  group_by(key)%>%
-  summarize(me)
+  select(-value)
 
 dim(max_vals)
 
@@ -323,7 +343,7 @@ max_vals <- max_vals %>%
     -million_L_per_month_flow_rate,-million_L_per_month_flow_total, -stat
   )
 
-
+max_vals
 
 mean_vals<-dat %>%
   pivot_wider(names_from = param_simple, 
