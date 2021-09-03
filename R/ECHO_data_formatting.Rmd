@@ -21,34 +21,115 @@ library(tidyverse)
 library(lubridate)
 library(here)
 
-col_specifications<-('ffffffcdfff') #compact string to specify column types
+col_specifications<-('ccffffffffffddff') #compact string to specify column types
 
-dat<-read_csv(file=here("data","LIS_watershed_ECHO_effluent.csv"), 
+dat<-read_csv(file=here("data","Echo_LIS_complete_data.csv"), 
                      col_types = col_specifications)
 
-          
+dat<-distinct(dat) #remove a few duplicate rows
+
+```
+#Data exploration visualization
+```{r}
+#analyzing distributions of Parameter codes
+levels(dat$Parameter)
+
+levels<-dat %>%
+  group_by(Parameter) %>%
+  tally()
+
+ggplot(levels, aes(Parameter,n))+
+  geom_col() +
+  ylab("count of observations")+
+  theme(axis.text.x=element_text(angle = 60, hjust=1))
+  
+#analyzing distributions of stats codes
+levels2<-dat %>%
+  group_by(`Statistical Base Long Desc`) %>%
+  tally()
+
+ggplot(levels2, aes(`Statistical Base Long Desc`,n))+
+  geom_col() +
+  ylab("count of observations")+
+  theme(axis.text.x=element_text(angle = 60, hjust=1))
+
+#looking at distribution of designators
+levels(dat$Designator)
+
+levels<-dat %>%
+  group_by(Designator) %>%
+  tally()
+
+ggplot(levels, aes(Designator,n))+
+  geom_col() +
+  ylab("count of observations")
+
+#looking at distribution of monitoring locations
+levels(dat$`Monitoring Location`)
+
+levels<-dat %>%
+  group_by(`Monitoring Location`) %>%
+  tally()
+
+ggplot(levels, aes(`Monitoring Location`,n))+
+  geom_col() +
+  ylab("count of observations")
 ```
 
 
 #Standardize data
 
 ```{r pressure, echo=FALSE}
-levels(dat$Parameter)
-levels(dat$Units)
-dat$day<-day(dat$date)
+#impute zeros for  "No Discharge Code - C" 
+dat$`Reported Value` <-
+  ifelse(dat$`Reported Value` == "No Discharge Code - C" ,
+         0,
+         dat$`Reported Value`)
 
+#reformating several columns
 dim(dat)
+names(dat)
 
+#renaming columns and 
+dat<-dat%>%
+  rename(date=`Monitoring Period`,
+        value=`Reported Value`,
+         facility=`Facility Name`,
+         permit=`Permit ID`) %>%
 
-# add a key and number of days in month column, then filter out some problematic units
-dat <- dat %>%
+# reformatting date and add a key and number of days in month column, then filter out some problematic units
+  mutate(date=mdy(date)) %>%
+  mutate(key = paste0(permit, "_", Outfall, "_", date)) %>%
   mutate(days_per_month = days_in_month(date)) %>%
-  mutate(day = day(date)) %>%
+  
+  #removing unwanted discharge codes and monitoring locations
+  filter(!grepl("No Dishcharge Code",value))%>%
+  filter(`Monitoring Location`=="1") %>%
+  
+  #removing infrequently used statistical base codes
+  filter(`Statistical Base Long Desc`=="Monthly Avg." )%>%
+  
+  # omitting the few observations of these unclear units and/or Parameters
   filter(!Units == "(55) - Pounds") %>%
   filter(!Units == "(25) - Milliliters per Liter") %>%
   filter(!Parameter == "51450 - Nitrite Plus Nitrate Total") %>%
-  # omitting the few observations of these unclear units and Parameters
-  distinct() #removing duplicated values
+
+  #omitting this parameter because we don't know what it means, but most
+  #observations report this AND 00056 flow rate,
+  #may want to include some of these observations later
+  filter(!Parameter=="50050 - Flow, in conduit or thru treatment plant") %>%
+  filter(!Parameter=="50047 - Flow, maximum during 24 hr period") %>%
+  filter(!Parameter=="00059 - Flow rate, instantaneous") %>%
+  filter(!Parameter=="51061 - Flow (dry weather)") %>%
+  
+  #I'm not sure which designator is correct, but we'll limit analysis to 1 for now 
+  #since it is most frequently reported
+  filter(Designator=="1")
+
+dat$Parameter <- droplevels(dat)$Parameter # dropping unused levels from dat$Parameter
+dat$Units <- droplevels(dat)$Units # dropping unused levels from dat$Parameter
+dat$Units <- droplevels(dat)$`Statistical Base Long Desc` # dropping unused levels from dat$`Statistical Base Long Desc`
+dat$Designator <- droplevels(dat)$Designator # dropping unused levels from dat$Designator
 
 dim(dat)
 
@@ -56,6 +137,7 @@ dim(dat)
 
 In the next chunk, we reduce the number of units to three--one for flow, one for 
 concentration, and another for loading rate. 
+
 ```{r}
 #standardize units to kg per month, million L per month, or milligram per liter
 dat <- dat %>% mutate(
@@ -69,14 +151,7 @@ dat <- dat %>% mutate(
     )
 )
 
-#evaluating how many observations report loads
-load_report_tally<-dat%>%
-  group_by(key)%>%
-  tally(!is.na(kg_per_month))
-
-sum((load_report_tally$n>0))/nrow(load_report_tally)*100
-#only about 10% of DMRs report loads
-
+#standardize units to millions of L per month
 dat <- dat %>% mutate(
   million_L_per_month =
     case_when(
@@ -96,7 +171,23 @@ dat <- dat %>% mutate(
       # converts gallons to millions of L and minute to month
     )
 )
-  
+
+#converting all N parameters to mass terms of nitrogen and not others (i.e. ammonia, nitrite, etc.)
+
+
+dat$value <-  ifelse(
+  dat$Parameter == "00608 - Nitrogen, ammonia dissolved",
+  dat$value * 14.0067 / 17.031,
+  dat$value
+)
+
+dat$value <- ifelse(
+  dat$Parameter == "34726 - Nitrogen, ammonia, total (as NH3)",
+  dat$value * 14.0067 / 17.031,
+  dat$value
+)
+
+#standardize concentrations to milligrams N per liter  
 dat <- dat %>% mutate(
   mg_N_per_L=
     case_when(
@@ -105,13 +196,7 @@ dat <- dat %>% mutate(
     )
   )
 
-#converting all N parameters to mass terms of nitrogen and not others (i.e. ammonia, nitrite, etc.)
 
-dat$value<-  ifelse(
-    dat$Parameter=="00608 - Nitrogen, ammonia dissolved", dat$value *14.0067/17.031, dat$value)
-
-dat$value<- ifelse(
-  dat$Parameter== "34726 - Nitrogen, ammonia, total (as NH3)", dat$value * 14.0067/17.031, dat$value)
 
 ```
 Next, we reduce the number of nitrogen to the following: total nitrogen "TN",
@@ -146,15 +231,13 @@ dat$param_simple <- recode(dat$Parameter,
     "51450 - Nitrite Plus Nitrate Total" = "IN", 
     #flow parameters
     "00056 - Flow rate" = "flow_rate",
-    "50047 - Flow, maximum during 24 hr period" = "flow_max_24h",
     "74076 - Flow" = "flow_rate",
     "00058 - Flow rate" = "flow_rate",
-    "50050 - Flow, in conduit or thru treatment plant" = "flow_rate", #questionable
     "82220 - Flow, total" = "flow_total",
-    "00059 - Flow rate, instantaneous" = "flow_rate", #questionable
-    "51061 - Flow (dry weather)" = "flow_dry"
+    
   )
 
+#analyzing distribution of parameters
 levels(dat$param_simple)
 
 levels<-dat %>%
@@ -166,323 +249,218 @@ ggplot(levels, aes(param_simple,n))+
   ylab("count of observations")
 
 
-```
+levels(dat$Parameter)
 
-#Standardizing statistics codes
-We have to make some decisions about standardizing the statistical codes. For now,
-I excluded two stats that had conflicting information in different columns and 
-were unclear. Then for now, I assigned simple "mean", "max", "min", and "total" 
-since the data are reported on a monthly basis, even though there are sometimes
-stats that differ--such as "daily" or "weekly" summary statistics. The next step 
-will be to look at duplicate cases and determine a prioritization of certain
-statistics over others in case of duplication within the same permit, month 
-reported, and outfall.
-
-```{r}
-levels2<-dat %>%
-  group_by(`Statistical Base Long Desc`) %>%
+levels<-dat %>%
+  group_by(Parameter) %>%
   tally()
 
-ggplot(levels2, aes(`Statistical Base Long Desc`,n))+
+ggplot(levels, aes(Parameter,n))+
   geom_col() +
   ylab("count of observations")+
   theme(axis.text.x=element_text(angle = 60, hjust=1))
-  
 
-dat <- dat %>% filter(!`Statistical Base Long Desc` %in% c(
-  "1 Day Average",
-  "Maximum Hourly Rate"
-)) # removing some rows with unclear metrics
+
+```
+
+#Standardizing statistics codes
+For now,I excluded ALL but two stats because tackling them all together was overwhelming.
+In the future, we may want to add back in some of the other statistics.
+
+```{r}
 
 dat$stat <- recode(dat$`Statistical Base Long Desc`,
-    "Monthly Avg." = "mean",
-    "Average Value" = "mean",
-    "Rolling Average" = "mean",
-    "30 Day Average" = "mean",
-    "Average" = "mean",
-    "30 Day Arithmetic Mean" = "mean",
-    "30 Day Arithmetic" = "mean",
-    "Daily Average"= "mean",
-    "Instantaneous Maximum"="max",
-    "Weekly Avg."="mean",
-    "Weekly Maximum"="max",
-    "Maximum"="max",
-    "Daily Min."="min",
-    "Daily Max."="max",
-    "Maximum (Data Migration)"="max",
-    "Average (Data Migration)"="mean",
-    "30 Day Average"="mean",
-    "Average"="mean",
-    "Semi-Annual Average"="mean",
-    "Quarterly Average"="mean",
-    "Quarterly Maximum"="max",
-    "Monthly Maximum"="max",
-    "Monthly Geometric"="mean",
-    "Discharged"="max",
-    "Instantaneous Minimum"="min",
-    "Annual Average"="mean",
-    "Monthly Average Minimum"="min",
-    "Annual Maximum"="max",
-    "12 Month Average"="mean",
-    "Monthly Total"="total",
-    "Indiv 12 Mo Rolling Ave"="mean",
-    "30 Day Arithmetic Mean"="mean",
-    "30 Day Arithmetic"="mean",
-    )
+    "Monthly Avg." = "monthly_mean")
 
 dat$stat <- droplevels(dat)$stat # dropping unused levels from dat$stat
 
 levels(dat$stat)
 
 
+
 ```
 
-This is an example of the duplicate values that are complicate reshaping the data from long to wide formatting. In this case, for key: CT0000086_1_1998-04-30.
+This is an example of the duplicate values that  complicate reshaping the data from long to wide formatting. In this case, for key: CT0000086_1_1998-04-30.
 
 ```{r, echo=T}
-#testing it out on test case to demonstrate issues with pivoting
-
-test_case<-dat%>%  filter(key == "CT0000086_1_1998-04-30") %>%   distinct()
-
+#testing it out on test case to demonstrate issues with duplicates
 test <- 
   dat %>%
-  filter(key == "CT0000086_1_1998-04-30")%>%
-  filter(stat=="mean")%>%
-  select(key, permit, Outfall, date,param_simple, stat, days_per_month,
-         mg_N_per_L, million_L_per_month, kg_per_month) %>%
-  distinct()
-
-
+  filter(key == "CT0000086_001_1998-04-30") 
 test
 
 
+#look at how many rows there are for each key
+n_row<-dat %>%
+  group_by(key)%>%
+  tally() %>%
+  arrange(n)
+
+hist(n_row$n) #most observations have 1-2 rows only
+
+```
+Let's separate the keys for which kg N/month loads already exist from those which don't.
+
+```{r}
+#subset of data that report loads
+N_load<- dat %>%
+  group_by(key) %>%
+  filter(!is.na(kg_per_month)) %>%
+    #removing unwanted columns
+  select(
+    !c(value,
+       Parameter,
+      `Received Date`,
+      `Monitoring Location`,
+      Units,
+      `Statistical Base Long Desc`,
+      Column,
+      days_per_month,
+      Designator,
+      `Seasonal Indicator`,
+      Limit,
+      `DMR Frequency of Analysis Code1`,
+      `Limit Sample Type`)
+  ) %>%
+  distinct() #removing any duplicate rows
+
+
+#check if there are duplicates per key and one parameter
+N_load %>%
+  group_by(key)%>%
+  filter(param_simple=="TN") %>%
+  tally() %>%
+  arrange(desc(n))
+#now there are no duplicates
+
+#pivoting the TN and NH3 observations into wide format and removing flow and concentration columns
+N_load_a<-N_load %>%
+   pivot_wider(names_from = param_simple,
+              values_from = kg_per_month) %>%
+  select(-million_L_per_month,- mg_N_per_L,-stat ) %>%
+  rename(kg_N_TN_per_month=TN,
+         kg_N_NH3_per_month=NH3)
+
+
 ```
 
-Here we pivot the data wider and summarize duplicates by min, mean, and max. Then we calculate loads based on the concentrations and flow data, and remove the concentration and flow columns after we use them.
+Here we pivot the data wider calculate loads based on the concentrations and flow data, and remove the concentration and flow columns after we use them.
 
-First, we report the detailed dataframes with all of the Parameter and Statistical Base Code Desc information. Then we report a simpler dataframe with fewer rows.
+
 ```{r}
 #function to id columns with all NAs
 not_all_na <- function(x) any(!is.na(x))
 
+#subset of data that DO NOT report loads, then
 #pivot wider and then remove columns with only NAs (since some parameter/unit combinations that don't make sense)
-max_vals_detailed<-dat %>%
-  pivot_wider(names_from = param_simple, 
-              values_from =c(mg_N_per_L, million_L_per_month,kg_per_month),
-              values_fn = max) %>%
-  select_if(not_all_na)
-
-names(max_vals_detailed)
-
-#evaluating the % of observations that report TN
-sum(!is.na(max_vals_detailed$mg_N_per_L_TN))/nrow(max_vals_detailed)*100
-
-#simpler dataframe with fewer rows
-max_vals <- dat %>%
-  select(!c(Parameter, `Monitoring Location`, Units, `Statistical Base Long Desc`, Column, day,days_per_month) ) %>%
-  pivot_wider(
-    names_from = param_simple,
-    values_from = c(mg_N_per_L, million_L_per_month, kg_per_month),
-    values_fn = max
-  ) %>%
-  select_if(not_all_na) %>%
-  select(-value)
-
-dim(max_vals)
-
-##
-
-
-
-
-max_vals <- max_vals %>%
-  mutate(
-    kg_N_TN_per_month = mg_N_per_L_TN * ifelse (
-      is.na(million_L_per_month_flow_rate),
-      million_L_per_month_flow_total,
-      million_L_per_month_flow_rate
-    )
-  ) %>%
-  mutate(
-    kg_N_ON_per_month = mg_N_per_L_ON * ifelse (
-      is.na(million_L_per_month_flow_rate),
-      million_L_per_month_flow_total,
-      million_L_per_month_flow_rate
-    )
-  ) %>%
-  mutate(
-    kg_N_NH3_per_month = mg_N_per_L_NH3 * ifelse (
-      is.na(million_L_per_month_flow_rate),
-      million_L_per_month_flow_total,
-      million_L_per_month_flow_rate
-    )
-  ) %>%
-  mutate(
-    kg_N_NO2_per_month = mg_N_per_L_NO2 * ifelse (
-      is.na(million_L_per_month_flow_rate),
-      million_L_per_month_flow_total,
-      million_L_per_month_flow_rate
-    )
-  ) %>%
-  mutate(
-    kg_N_NO3_per_month = mg_N_per_L_NO3 * ifelse (
-      is.na(million_L_per_month_flow_rate),
-      million_L_per_month_flow_total,
-      million_L_per_month_flow_rate
-    )
-  ) %>%
-  mutate(
-    kg_N_IN_per_month = mg_N_per_L_IN * ifelse (
-      is.na(million_L_per_month_flow_rate),
-      million_L_per_month_flow_total,
-      million_L_per_month_flow_rate
-    )
-  ) %>%
-  select(
-    -mg_N_per_L_TN, -mg_N_per_L_ON, -mg_N_per_L_NH3, -mg_N_per_L_NO2, -mg_N_per_L_NO3, -mg_N_per_L_IN,
-    -million_L_per_month_flow_rate,-million_L_per_month_flow_total, -stat
-  )
-
-max_vals
-
-mean_vals<-dat %>%
-  pivot_wider(names_from = param_simple, 
-              values_from =c(mg_N_per_L, million_L_per_month,kg_per_month),
-              values_fn = mean)%>%
-  select_if(not_all_na)
-
-names(mean_vals)
-
-mean_vals <- mean_vals %>%
-  mutate(
-    kg_N_TN_per_month = mg_N_per_L_TN * ifelse (
-      is.na(million_L_per_month_flow_rate),
-      million_L_per_month_flow_total,
-      million_L_per_month_flow_rate
-    )
-  ) %>%
-  mutate(
-    kg_N_ON_per_month = mg_N_per_L_ON * ifelse (
-      is.na(million_L_per_month_flow_rate),
-      million_L_per_month_flow_total,
-      million_L_per_month_flow_rate
-    )
-  ) %>%
-  mutate(
-    kg_N_NH3_per_month = mg_N_per_L_NH3 * ifelse (
-      is.na(million_L_per_month_flow_rate),
-      million_L_per_month_flow_total,
-      million_L_per_month_flow_rate
-    )
-  ) %>%
-  mutate(
-    kg_N_NO2_per_month = mg_N_per_L_NO2 * ifelse (
-      is.na(million_L_per_month_flow_rate),
-      million_L_per_month_flow_total,
-      million_L_per_month_flow_rate
-    )
-  ) %>%
-  mutate(
-    kg_N_NO3_per_month = mg_N_per_L_NO3 * ifelse (
-      is.na(million_L_per_month_flow_rate),
-      million_L_per_month_flow_total,
-      million_L_per_month_flow_rate
-    )
-  ) %>%
-  mutate(
-    kg_N_IN_per_month = mg_N_per_L_IN * ifelse (
-      is.na(million_L_per_month_flow_rate),
-      million_L_per_month_flow_total,
-      million_L_per_month_flow_rate
-    )
-  ) %>%
-  select(
-    -mg_N_per_L_TN, -mg_N_per_L_ON, -mg_N_per_L_NH3, -mg_N_per_L_NO2, -mg_N_per_L_NO3, -mg_N_per_L_IN,
-    -million_L_per_month_flow_rate,-million_L_per_month_flow_total, -stat
-  )
-
-min_vals<-dat %>%
-  pivot_wider(names_from = param_simple, 
-              values_from =c(mg_N_per_L, million_L_per_month,kg_per_month),
-              values_fn = max)%>%
-  select_if(not_all_na)
-
-names(min_vals)
-
-min_vals <- min_vals %>%
-  mutate(
-    kg_N_TN_per_month = mg_N_per_L_TN * ifelse (
-      is.na(million_L_per_month_flow_rate),
-      million_L_per_month_flow_total,
-      million_L_per_month_flow_rate
-    )
-  ) %>%
-  mutate(
-    kg_N_ON_per_month = mg_N_per_L_ON * ifelse (
-      is.na(million_L_per_month_flow_rate),
-      million_L_per_month_flow_total,
-      million_L_per_month_flow_rate
-    )
-  ) %>%
-  mutate(
-    kg_N_NH3_per_month = mg_N_per_L_NH3 * ifelse (
-      is.na(million_L_per_month_flow_rate),
-      million_L_per_month_flow_total,
-      million_L_per_month_flow_rate
-    )
-  ) %>%
-  mutate(
-    kg_N_NO2_per_month = mg_N_per_L_NO2 * ifelse (
-      is.na(million_L_per_month_flow_rate),
-      million_L_per_month_flow_total,
-      million_L_per_month_flow_rate
-    )
-  ) %>%
-  mutate(
-    kg_N_NO3_per_month = mg_N_per_L_NO3 * ifelse (
-      is.na(million_L_per_month_flow_rate),
-      million_L_per_month_flow_total,
-      million_L_per_month_flow_rate
-    )
-  ) %>%
-  mutate(
-    kg_N_IN_per_month = mg_N_per_L_IN * ifelse (
-      is.na(million_L_per_month_flow_rate),
-      million_L_per_month_flow_total,
-      million_L_per_month_flow_rate
-    )
-  ) %>%
-  select(
-    -mg_N_per_L_TN, -mg_N_per_L_ON, -mg_N_per_L_NH3, -mg_N_per_L_NO2, -mg_N_per_L_NO3, -mg_N_per_L_IN,
-    -million_L_per_month_flow_rate,-million_L_per_month_flow_total,-million_L_per_month_flow_max_24h, -stat
-  )
-
-#############test case to demonstrate NAs
-test2<-filter(max_vals, key=="CT0000086_1_1998-04-30")
-test2
-
-#code to remove rows with NAs in all of the value columns
-cols_to_check = c("kg_per_month_TN","kg_per_month_NH3","kg_per_month_NO2", "kg_per_month_NO3", "kg_per_month_IN")
-
-test2 %>% 
-  filter(!if_all(cols_to_check, ~ is.na(.x)))
-#####################################
-
-max_vals
-min_vals
-mean_vals
-
-write.csv(max_vals, file=here("data", "ECHO_data_summarized_maximum_values.csv"),row.names = F)
-write.csv(min_vals, file=here("data", "ECHO_data_summarized_minimum_values.csv"), row.names = F)
-write.csv(mean_vals, file=here("data","ECHO_data_summarized_mean_values.csv"), row.names = F)
-
-
-```
-
-Evaluate how many rows there are per key. There are often 24--so we need to simplify the output further.
-```{r}
-max_vals%>%
+flow_N_concentration <- dat %>%
   group_by(key) %>%
-  tally()
+  filter(is.na(kg_per_month)) %>%
+   #removing unwanted columns
+  select(
+    !c(value,
+       Parameter,
+      `Received Date`,
+      `Monitoring Location`,
+      Units,
+      `Statistical Base Long Desc`,
+      Column,
+      days_per_month,
+      Designator,
+      `Seasonal Indicator`,
+      Limit,
+      `DMR Frequency of Analysis Code1`,
+      `Limit Sample Type`)
+  ) %>%
+   pivot_wider(names_from = param_simple,
+              values_from = c(mg_N_per_L, million_L_per_month),
+              values_fn = mean) %>%
+  select_if(not_all_na) 
+
+#calculating N loads
+N_load_b <- flow_N_concentration %>%
+  mutate(kg_N_TN_per_month = mg_N_per_L_TN * million_L_per_month_flow_rate) %>%
+  mutate(kg_N_ON_per_month = mg_N_per_L_ON * million_L_per_month_flow_rate) %>%
+  mutate(kg_N_NH3_per_month = mg_N_per_L_NH3 * million_L_per_month_flow_rate) %>%
+  mutate(kg_N_NO2_per_month = mg_N_per_L_NO2 * million_L_per_month_flow_rate) %>%
+  mutate(kg_N_NO3_per_month = mg_N_per_L_NO3 * million_L_per_month_flow_rate) %>%
+  select(
+    -mg_N_per_L_TN,
+    -mg_N_per_L_ON,
+    -mg_N_per_L_NH3,
+    -mg_N_per_L_NO2,
+    -mg_N_per_L_NO3,
+    -million_L_per_month_flow_rate,
+    -stat
+  )
+
+#combine N columns in N_load_b to standardize and join dataframes
+names(N_load_b)
+
+
+N_load_b$kg_N_inorganic_per_month <- N_load_b$kg_N_NH3_per_month +
+  N_load_b$kg_N_NO3_per_month +
+  N_load_b$kg_N_NO2_per_month
+
+#adding organic N and inorganic N together as "composite" N
+N_load_b$kg_N_sum_per_month <- N_load_b$kg_N_ON_per_month +
+  N_load_b$kg_N_inorganic_per_month
+
+#remove intermediate columns we no longer need
+N_load_b <- N_load_b %>%
+  select(
+    -kg_N_NH3_per_month,-kg_N_NO3_per_month,
+    -kg_N_NO2_per_month,
+    -kg_N_inorganic_per_month,
+    -kg_N_ON_per_month
+  )
+
+#combine the different N columns; use total N when reported, or the sum of all other
+#forms of N if TN is not reported
+N_load_b$kg_N_TN_per_month <-
+  ifelse(
+    !is.na(N_load_b$kg_N_TN_per_month),
+    N_load_b$kg_N_TN_per_month,
+    N_load_b$kg_N_sum_per_month
+  )
+
+#remove N sum column
+N_load_b<- N_load_b %>%
+  select(-kg_N_sum_per_month)
+
+#for N_load_b
+#combine the different N columns; use total N when reported, or the sum of all other
+#forms of N if TN is not reported
+N_load_b$kg_N_TN_per_month <-
+  ifelse(
+    !is.na(N_load_b$kg_N_TN_per_month),
+    N_load_b$kg_N_TN_per_month,
+    N_load_b$kg_N_sum_per_month
+  )
+
+names(N_load_b)
+
+#for N_load_a
+#combine the different N columns; use total N when reported, or the sum of all other
+#forms of N if TN is not reported
+
+N_load_a$kg_N_TN_per_month <-
+  ifelse(
+    !is.na(N_load_a$kg_N_TN_per_month),
+    N_load_a$kg_N_TN_per_month,
+    N_load_a$kg_N_NH3_per_month
+  )
+
+#remove NH3 column
+N_load_a<- N_load_a %>%
+  select(-kg_N_NH3_per_month)
+
+names(N_load_a)
+
+#combine dataframes
+N_load<-rbind(N_load_a,N_load_b)
+
+write.csv(N_load, file=here("data", "ECHO_data_clean.csv"),row.names = F)
 
 ```
+
