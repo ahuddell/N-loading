@@ -66,15 +66,29 @@ params <- c(
 test2 <- test %>%
   select(
     npdes_id,
-    outfall,
     perm_feature_nmbr,
     parameter_desc,
     standard_unit_desc,
     monitoring_period_end_date,
-    dmr_value_standard_units
+    dmr_value_standard_units,
+    statistical_base_short_desc,
+    monitoring_location_code
   ) %>%
   filter(monitoring_location_code == "0") %>%
   filter(parameter_desc  %in% params)
+
+#plot the frequency of different parameters
+test2$stat<-as.factor(test2$"statistical_base_short_desc")
+levels(test2$stat)
+
+levels<-test2 %>%
+  group_by(stat) %>%
+  tally()
+
+ggplot(levels, aes(stat,n))+
+  geom_col() +
+  ylab("count of observations")+
+  theme(axis.text.x=element_text(angle = 30, hjust=1))
 
 
 
