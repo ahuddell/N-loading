@@ -454,16 +454,30 @@ N_load<-rbind(N_load_a,N_load_b)
 Loading in NPDES database with NPDES ID to match locations and other data.
 
 ```{r}
-outfall_locations<-read_csv(file =here("data","NPDES_PERM_FEATURE_COORDS.csv"))
+outfall_locations <-
+  read_csv(file = here("data", "NPDES_PERM_FEATURE_COORDS.csv"))
 
 names(outfall_locations)
 
 names(N_load)
 
+#need to remove leading zeroes from outfall column
+N_load$Outfall <- sub("^0+", "", N_load$Outfall)
+N_load$Outfall
 
+#create key variables with permit and locations for join
+N_load$permit_outfall <- paste0(N_load$permit, "_", N_load$Outfall)
+outfall_locations$permit_outfall <-
+  paste0(outfall_locations$EXTERNAL_PERMIT_NMBR,
+         "_",
+         outfall_locations$PERM_FEATURE_NMBR)
 
+#join locations based on permit number and outfall number
+N_load_out <- left_join(N_load, outfall_locations, by = "permit_outfall")
 
-write.csv(N_load, file=here("data", "ECHO_data_clean.csv"),row.names = F)
+write.csv(N_load,
+          file = here("data", "ECHO_data_clean.csv"),
+          row.names = F)
 
 
 ```
