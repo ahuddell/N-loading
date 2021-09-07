@@ -475,7 +475,7 @@ outfall_locations$permit_outfall <-
 #join locations based on permit number and outfall number
 N_load_out <- left_join(N_load, outfall_locations, by = "permit_outfall")
 
-write.csv(N_load,
+write.csv(N_load_out,
           file = here("data", "ECHO_data_clean.csv"),
           row.names = F)
 
