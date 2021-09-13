@@ -9,6 +9,7 @@ library(leaflet)
 #read data
 dat<-read_csv( file = here('data', 'ECHO_data_clean.csv'))
 write_rds(dat, paste0(here(), "/test.rds"))
+
 #remove NAs from lat/ long
 dat_noNA<- dat %>% drop_na(c('LONGITUDE_MEASURE','LATITUDE_MEASURE'))
 
@@ -19,7 +20,7 @@ dat_sf
 
 
 #extract huc8 codes 
-HUC8<-nhdplusTools::get_huc12(AOI=dat_sf$geometry)
+HUC8<-nhdplusTools::get_huc8(AOI=dat_sf$geometry)
 
 #viewing data extents on map
 mapview(HUC8)
