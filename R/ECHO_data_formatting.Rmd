@@ -475,9 +475,43 @@ outfall_locations$permit_outfall <-
 #join locations based on permit number and outfall number
 N_load_out <- left_join(N_load, outfall_locations, by = "permit_outfall")
 
-write.csv(N_load_out,
+```
+
+Now join the HUC8 IDs to the data.
+
+```{r}
+HUC8_outfall_locations <-
+  read_csv(file = here('data', 'HUC8_NPDES_outfall_intersection.csv'))
+
+#select columns
+HUC8_outfall_locations <- HUC8_outfall_locations %>%
+  select('EXTERNAL_PERMIT_NMBR',
+         'PERM_FEATURE_NMBR',
+         'huc8',
+         'name')
+
+names(HUC8_outfall_locations)
+
+#need to remove leading zeroes from outfall column
+HUC8_outfall_locations$PERM_FEATURE_NMBR <- sub("^0+", "", HUC8_outfall_locations$PERM_FEATURE_NMBR)
+HUC8_outfall_locations$PERM_FEATURE_NMBR
+
+
+#create key variables with permit and locations for join
+HUC8_outfall_locations$permit_outfall <-
+  paste0(HUC8_outfall_locations$EXTERNAL_PERMIT_NMBR,
+         "_",
+         HUC8_outfall_locations$PERM_FEATURE_NMBR)
+
+#join locations based on permit number and outfall number
+dat_join<- left_join(N_load_out, HUC8_outfall_locations, by = "permit_outfall")
+
+write.csv(dat_join,
           file = here("data", "ECHO_data_clean.csv"),
           row.names = F)
+
+
+
 
 
 ```
