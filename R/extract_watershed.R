@@ -125,33 +125,17 @@ mapview(huc8_combined) #need to add last missing watershed
 #now transforming all CRS
 huc8_combined<-st_transform(huc8_combined, crs=4326)
 
-
 # read in our data convert to sf object -----------------------------------
 
 #read data
 dat<-read_csv( file = here('data', 'ECHO_data_clean.csv'))
 
-#remove NAs from lat/ long
-dat_noNA<- dat %>% drop_na(c('LONGITUDE_MEASURE','LATITUDE_MEASURE'))
 
 dat_summary<- dat %>%
   group_by(huc8,date) %>%
   summarise(sum(kg_N_TN_per_month,na.rm=T))
 
-#convert to sf obj
-dat_sf <- st_as_sf(dat_noNA, coords = c('LONGITUDE_MEASURE', 'LATITUDE_MEASURE'), 
-                   crs = 4326)
 
-dat_sf
-
-
-# map ---------------------------------------------------------------------
-
-#viewing data extents on map
-mapview(dat_sf)
-# 
-# ## intersect polygons with points, keeping the information from both
-# dat_join_sf = st_intersection(dat_sf, HUC8)
 
 #calculating monthly TN totals by watershed
 dat_summary<- dat %>%
@@ -159,17 +143,37 @@ dat_summary<- dat %>%
   summarise(month_total_huc=sum(kg_N_TN_per_month,na.rm=T))
 
 #join huc spatial data to monthly totals
-N_load_huc_join<-left_join(dat_summary_test,huc8_combined)
+N_load_huc_join<-left_join(dat_summary,huc8_combined)
 N_load_huc_join<-st_as_sf(N_load_huc_join)
 
-#subset of one month for mapping
-one_month_test<-filter(N_load_huc_join, date==max(date,na.rm = T))
+#writing out huc_join for spatial app
+dir.create(here('data', 'huc_8_dat_join'))
 
+st_write(N_load_huc_join,
+         here('data','huc_8_dat_join','N_load_huc_join.shp'))
+
+#for plotting outfall points; convert to sf obj
+
+#remove NAs from lat/ long
+dat_noNA<- dat %>% drop_na(c('LONGITUDE_MEASURE','LATITUDE_MEASURE'))
+
+dat_sf <- st_as_sf(dat_noNA, coords = c('LONGITUDE_MEASURE', 'LATITUDE_MEASURE'), 
+                   crs = 4326)
+
+dat_sf
+
+#viewing data extents on map
+mapview(dat_sf)
+
+# map ---------------------------------------------------------------------
+
+#data for map--subset just one month
+one_month_test<-filter(N_load_huc_join, date==median(date,na.rm = T))
 
 #color palette
 #bins <- unname(quantile(one_month_test$month_total_huc, c(.2,.6,.8,1)))
 bins <- c(0,2,3,6,7000,8000)
-pal <- colorBin("RdYlBu", domain = one_month_test$month_total_huc, bins = bins)
+pal <- colorBin("Blues", domain = one_month_test$month_total_huc, bins = bins)
 #in future make this colorQuantiles with more categories
 
 labels <- sprintf(
@@ -205,7 +209,7 @@ m <- leaflet(one_month_test) %>%
                   position = "bottomright")
 m
 
-mapshot(map_with_points, file='huc8_observation_points.jpeg')
+mapshot(m, file='huc8_observation_points.jpeg')
 
 
 
