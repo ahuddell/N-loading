@@ -120,7 +120,7 @@ huc8_combined <- dplyr::bind_rows(list(huc8_01080101,huc8_01080102,huc8_01080103
                                    huc8_01100002,huc8_01100003,huc8_01100004,
                                    huc8_01100005,huc8_01100006,huc8_02030102,
                                    huc8_02030201))
-mapview(huc8_combined) #need to add last missing watershed
+#mapview(huc8_combined) #need to add last missing watershed
 
 #now transforming all CRS
 huc8_combined<-st_transform(huc8_combined, crs=4326)
@@ -131,20 +131,15 @@ huc8_combined<-st_transform(huc8_combined, crs=4326)
 dat<-read_csv( file = here('data', 'ECHO_data_clean.csv'))
 
 
-dat_summary<- dat %>%
-  group_by(huc8,date) %>%
-  summarise(sum(kg_N_TN_per_month,na.rm=T))
-
-
-
 #calculating monthly TN totals by watershed
 dat_summary<- dat %>%
   group_by(huc8,date) %>%
-  summarise(month_total_huc=sum(kg_N_TN_per_month,na.rm=T))
+  summarise(kgN_huc8=sum(kg_N_TN_per_month,na.rm=T))
 
 #join huc spatial data to monthly totals
 N_load_huc_join<-left_join(dat_summary,huc8_combined)
 N_load_huc_join<-st_as_sf(N_load_huc_join)
+names(N_load_huc_join)
 
 #writing out huc_join for spatial app
 dir.create(here('data', 'huc_8_dat_join'))
@@ -171,14 +166,14 @@ mapview(dat_sf)
 one_month_test<-filter(N_load_huc_join, date==median(date,na.rm = T))
 
 #color palette
-#bins <- unname(quantile(one_month_test$month_total_huc, c(.2,.6,.8,1)))
+#bins <- unname(quantile(one_month_test$kg_TN_mo_huc8, c(.2,.6,.8,1)))
 bins <- c(0,2,3,6,7000,8000)
-pal <- colorBin("Blues", domain = one_month_test$month_total_huc, bins = bins)
+pal <- colorBin("Blues", domain = one_month_test$kg_TN_mo_huc8, bins = bins)
 #in future make this colorQuantiles with more categories
 
 labels <- sprintf(
   "<strong>%s</strong><br/>%g kg total N / month<sup>-1</sup>",
-  one_month_test$name, one_month_test$month_total_huc
+  one_month_test$name, one_month_test$kg_TN_mo_huc8
 ) %>% lapply(htmltools::HTML)
 
 #leaflet map
@@ -189,7 +184,7 @@ m <- leaflet(one_month_test) %>%
           lng = -73.2 ,
           zoom = 6.5) %>%
   addPolygons(
-    fillColor = ~ pal(one_month_test$month_total_huc),
+    fillColor = ~ pal(one_month_test$kg_TN_mo_huc8),
     weight = 2,
     color = 'black',
     opacity = 1,
