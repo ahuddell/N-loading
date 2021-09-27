@@ -1,12 +1,12 @@
 
 library(shinydashboard)
-library(png)
 library(shinydashboardPlus)
 library(shiny)
 library(tidyverse)
 library(RColorBrewer)
+library(bslib)
 # library(highcharter)
-library(shinyjs)
+#library(shinyjs)
 # library(tmap)
 # library(tmaptools)
 library(leaflet)
@@ -39,29 +39,23 @@ st_crs(dat) # WGS 84 is coordinate reference system
 
 labels <- sprintf(
   "<strong>%s</strong><br/>%g kg total N / month<sup>-1</sup>",
-  dat$name, dat$month_total_huc
+  dat$name, dat$kgN_huc8
 ) %>% lapply(htmltools::HTML)
 
 
-# bins <- unname(quantile(one_month_test$month_total_huc, c(.2,.6,.8,1)))
+# bins <- unname(quantile(one_month_test$kgN_huc8, c(.2,.6,.8,1)))
 bins <- c(0, 2, 3, 6, 7000, 8000)
 pal <- colorBin("Blues", bins = bins)
 # in future make this colorQuantiles with more categories
 
 
-ui <- bootstrapPage(
-  tags$style(type = "text/css", "html, body {width:100%;height:100%}"),
-  leafletOutput("map", width = "100%", height = "100%"),
-  absolutePanel(
-    top = 10, right = 10,
-    sliderInput("month", "Month",
-      min = min(dat$date),
-      max = max(dat$date),
-      value = median(dat$date),
-      step = 1
-    )
+ui <- fluidPage(
+  theme=bs_theme(version=4,bootswatch = "lumen"),
+  # tags$style(type = "text/css", "html, body {width:100%;height:100%}"),
+
   )
-)
+  
+
 
 server <- function(input, output, session) {
 
@@ -73,7 +67,7 @@ server <- function(input, output, session) {
   filteredLabels <- reactive({
       sprintf(
           "<strong>%s</strong><br/>%g kg total N / month<sup>-1</sup>",
-          dat$name, dat$mnth_t_
+          dat$name, dat$kgN_huc8
       ) %>% lapply(htmltools::HTML)
   })
 
@@ -105,7 +99,7 @@ server <- function(input, output, session) {
     leafletProxy("map", data = filteredData()) %>%
       clearShapes() %>%
       addPolygons(
-        fillColor = ~pal(mnth_t_),
+        fillColor = ~pal(kgN_huc8),
         weight = 2,
         color = "black",
         opacity = 1,
