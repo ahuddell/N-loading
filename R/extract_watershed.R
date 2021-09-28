@@ -161,19 +161,23 @@ dat_sf
 mapview(dat_sf)
 
 # map ---------------------------------------------------------------------
+centroids <- dat_sf%>%
+  group_by(name) %>%
+  slice(1) %>%
+  st_centroid() 
 
 #data for map--subset just one month
 one_month_test<-filter(N_load_huc_join, date==median(date,na.rm = T))
 
 #color palette
-#bins <- unname(quantile(one_month_test$kg_TN_mo_huc8, c(.2,.6,.8,1)))
+#bins <- unname(quantile(one_month_test$kgN_huc8 , c(.2,.6,.8,1)))
 bins <- c(0,2,3,6,7000,8000)
-pal <- colorBin("Blues", domain = one_month_test$kg_TN_mo_huc8, bins = bins)
+pal <- colorBin("Blues", domain = one_month_test$kgN_huc8 , bins = bins)
 #in future make this colorQuantiles with more categories
 
 labels <- sprintf(
   "<strong>%s</strong><br/>%g kg total N / month<sup>-1</sup>",
-  one_month_test$name, one_month_test$kg_TN_mo_huc8
+  one_month_test$name, one_month_test$kgN_huc8 
 ) %>% lapply(htmltools::HTML)
 
 #leaflet map
@@ -184,7 +188,7 @@ m <- leaflet(one_month_test) %>%
           lng = -73.2 ,
           zoom = 6.5) %>%
   addPolygons(
-    fillColor = ~ pal(one_month_test$kg_TN_mo_huc8),
+    fillColor = ~ pal(one_month_test$kgN_huc8),
     weight = 2,
     color = 'black',
     opacity = 1,
@@ -201,25 +205,14 @@ m <- leaflet(one_month_test) %>%
     fillOpacity = .8,
     radius = .5
   ) %>% addLegend(pal = pal, values = ~density, opacity = 0.7, title = NULL,
-                  position = "bottomright")
+                  position = "bottomright") %>%
+  addLabelOnlyMarkers(data = centroids,
+                      lng = ~unlist(map(centroids$geometry,1)), 
+                      lat = ~unlist(map(centroids$geometry,2)), label = ~name,
+                      labelOptions = labelOptions(noHide = TRUE, 
+                                                  direction = 'top', textOnly = TRUE)) 
+
 m
-
-mapshot(m, file='huc8_observation_points.jpeg')
-
-
-
-# #names of polygons to plot
-# to_plot<-paste0('huc8_', c(id))
-# 
-# # Create a color palette for the map:
-# get_viridis_colors <- function(no_colors){
-#   appsilon_col2Hex(viridis::viridis_pal(option = 'C')(no_colors))
-# }
-# 
-# addPolygons( fillColor = ~mypalette(kg_N_TN_per_month), stroke=FALSE )%>%
-#   addLegend(position = 'bottomright',
-#             colors = get_viridis_colors(2),
-#             labels = types)
 
 
 
