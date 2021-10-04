@@ -24,12 +24,17 @@ dat_sf <- st_read(here(
   "N_load_huc_join.shp"
 ))
 
+dat_sf_annual<- dat_sf %>%
+  group_by(huc8, year=year(date)) %>%
+  summarise(kgN_huc8_yr=sum(kgN_huc8,na.rm=T)) %>%
+  ungroup()
+
 # same data as data frame object for plots
 dat <- as.data.frame(dat_sf)
 
 # color palette for choropleth map
 bins <- c(0, 2, 3, 6, 7000, 8000)
-pal <- colorBin("Blues", bins = bins)
+pal <- colorBin("Blues",bin=bins)
 # in future make this colorQuantiles with more categories
 
 
@@ -66,12 +71,13 @@ ui <- function(request) {
         column(
           width = 6,
           sliderInput(
-            "month",
-            "Month",
-            min = min(dat$date),
-            max = max(dat$date),
-            value = median(dat$date),
-            timeFormat = "%b %Y",
+            inputId = "year",
+            label="Year",
+            min = min(dat_sf_annual$year),
+            max = max(dat_sf_annual$year),
+            value = min(dat_sf_annual$year),
+           timeFormat = "%Y",
+           sep = "",
             step = 1
           )
         ),
@@ -101,14 +107,13 @@ ui <- function(request) {
 
 # server ------------------------------------------------------------------
 
-
 # Server
 server <- function(input, output, session) {
 
-  ### Tab 1
-  # Reactive expression for the data subsetted to what the user selected
-  filtered_month <- reactive({
-    filter(dat_sf, date == input$month)
+  ## Tab 1
+ # Reactive expression for the data subsetted to what the user selected
+  filtered_year <- reactive({
+    dat_sf_annual %>% filter(year == input$year) 
   })
 
   # filteredLabels <- reactive({
@@ -123,18 +128,18 @@ server <- function(input, output, session) {
   #
   # render base map
   output$map <- renderLeaflet({
-    leaflet(dat_sf) %>%
-      addProviderTiles(providers$Esri) %>%
+    leaflet(dat_sf_annual) %>%
+      addProviderTiles(providers$Esri.WorldPhysical) %>%
       addLegend(
         pal = pal,
         values = ~ density,
         opacity = 0.7,
         title = NULL,
         position = "bottomright") %>%
-      fitBounds(~ unname(st_bbox(dat_sf)[1]),
-                ~ unname(st_bbox(dat_sf)[2]),
-                ~ unname(st_bbox(dat_sf)[3]),
-                ~ unname(st_bbox(dat_sf)[4])) %>%
+      fitBounds(~ unname(st_bbox(dat_sf_annual)[1]),
+                ~ unname(st_bbox(dat_sf_annual)[2]),
+                ~ unname(st_bbox(dat_sf_annual)[3]),
+                ~ unname(st_bbox(dat_sf_annual)[4])) %>%
 
       addLabelOnlyMarkers(
         data = centroids,
@@ -153,23 +158,16 @@ server <- function(input, output, session) {
   
   # add reactive choropleth layer
   observe({
-    leafletProxy("map", data = filtered_month()) %>%
-      clearShapes() %>%
+    leafletProxy("map", data = filtered_year()) %>%
+      #clearShapes() %>%
       addPolygons(
-        fillColor = ~ pal(kgN_huc8),
+        fillColor = ~ pal(kgN_huc8_yr),
         weight = 2,
         color = "black",
         opacity = 1,
         fillOpacity = 0.7)
-        
-      #   labelOptions = labelOptions(
-      #       style = list("font-weight" = "normal", padding = "3px 8px"),
-      #       textsize = "15px",
-      #       direction = "auto"
-      #   )
-      #   # popup = ~paste0("Site No: ", SiteID)
-      # )
   })
+  
 
   
 
@@ -203,5 +201,5 @@ server <- function(input, output, session) {
 
 # run app -----------------------------------------------------------------
 
-
+options(shiny.reactlog = TRUE)
 shinyApp(ui, server)
