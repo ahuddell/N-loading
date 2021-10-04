@@ -33,8 +33,9 @@ dat_sf_annual<- dat_sf %>%
 dat <- as.data.frame(dat_sf)
 
 # color palette for choropleth map
-bins <- c(0, 2, 3, 6, 7000, 8000)
-pal <- colorBin("Blues",bin=bins)
+bins <- c(0,25000,50000,100000,200000,300000,550500)
+pal <- colorBin("Blues",bin=bins, na.color = "808080",
+)
 # in future make this colorQuantiles with more categories
 
 
