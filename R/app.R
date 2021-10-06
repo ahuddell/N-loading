@@ -202,5 +202,5 @@ server <- function(input, output, session) {
 
 # run app -----------------------------------------------------------------
 
-options(shiny.reactlog = TRUE)
+#options(shiny.reactlog = TRUE)
 shinyApp(ui, server)
