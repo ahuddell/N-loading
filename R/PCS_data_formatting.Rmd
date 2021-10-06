@@ -43,18 +43,349 @@ dat %>% count(key) #there are 95,366 unique keys, so some keys have duplicate ro
 test<-dat %>% filter(key=="CT000008611989-01-31")
 
 #plot the frequency of different parameters
-dat$params<-as.factor(dat$"Parameter Cd (PRAM)")
-levels(dat$params)
+dat$param<-as.factor(dat$"Parameter Cd (PRAM)")
+levels(dat$param)
 
 levels<-dat %>%
-  group_by(params) %>%
+  group_by(param) %>%
   tally()
 
-ggplot(levels, aes(params,n))+
+ggplot(levels, aes(param,n))+
   geom_col() +
   ylab("count of observations")+
   theme(axis.text.x=element_text(angle = 30, hjust=1))
 
+```
+
+```{r}
+
+#renaming columns and 
+dat<-dat%>%
+  rename(facility=`Facility Name Short (FNMS)`,
+         permit=`Permit Num (NPID)`,
+         Outfall=`Discharge Num (DSCH)`) %>%
+
+# reformatting date and add a key and number of days in month column, then filter out some problematic units
+  mutate(key = paste0(permit, "_", Outfall, "_", date)) %>%
+  mutate(days_per_month = days_in_month(date)) %>%
+  
+  #removing unwanted discharge codes and monitoring locations
+  filter(`Monitoring Location (MLOC)`=="1") %>%
+  
+    
+  #removing one unclear unit that only relates to a few observations of flow maxima
+  filter(!`Quant Unit Cd Desc (LQUCD)` =="(3R) - Million Gallons")%>%
+
+#omitting this parameter because we don't know what it means, but most
+  #observations report this AND 00056 flow rate,
+  #may want to include some of these observations later
+  filter(!param=="50050 - Flow, In Conduit Or Thru Treatment Plant") %>%
+  filter(!param=="50047 - Flow, Maximum During 24 Hr Period") %>%
+  filter(!param=="00059 - Flow Rate, Instantaneous") %>%
+  filter(!param=="51061 - Flow (Dry Weather)") %>%
+  #I'm not sure which designator is correct, but we'll limit analysis to 1 for now 
+  #since it is most frequently reported
+  filter(`Discharge Designator (DRID)`=="1")
+  
+
+
+dat$`Quant Unit Cd Desc (LQUCD)` <- droplevels(dat)$`Quant Unit Cd Desc (LQUCD)` # dropping unused levels from dat$`Quant Unit Cd Desc (LQUCD)`
+dat$`Conc Unit Cd Desc (LCUCD)` <- droplevels(dat)$`Conc Unit Cd Desc (LCUCD)` # dropping unused levels from dat$`Quant Unit Cd Desc (LQUCD)`
+dat$param<- droplevels(dat)$param # dropping unused levels from dat$param
+
+dim(dat)
+```
+
+
+In the next chunk, we reduce the number of units to three--one for flow, one for 
+concentration, and another for loading rate. 
+
+```{r}
+#standardize units to kg per month, million L per month, or milligram per liter
+dat <- dat %>% mutate(
+  kg_per_month =
+    case_when(
+      `Quant Unit Cd Desc (LQUCD)` == "(26) - Pounds per Day" ~ `Meas Quant Avge (MQAV)` / 2.205 * days_per_month,
+      `Quant Unit Cd Desc (LQUCD)` == "(01) - Kilograms per Day" ~ `Meas Quant Avge (MQAV)`  * days_per_month # converts per day to per month
+             )
+)
+
+#standardize units to millions of L per month
+dat <- dat %>% mutate(
+  million_L_per_month =
+    case_when(
+      `Quant Unit Cd Desc (LQUCD)` == "(07) - Gallons per Day" ~ `Meas Quant Avge (MQAV)` / 10 ^ 6 * 3.785 * days_per_month,
+      #converts from Gallons per day to millions L per month
+      `Quant Unit Cd Desc (LQUCD)` == "(08) - Cubic Feet per Second" ~ `Meas Quant Avge (MQAV)` * 28.317 / 10 ^ 6 * 60 * 60 * 24 * days_per_month,
+      # converts cubic feet per second to million L per month
+      
+      `Quant Unit Cd Desc (LQUCD)` == "(8D) - Gallons per Month" ~ `Meas Quant Avge (MQAV)` / 10 ^ 6 * 3.785,
+      # converts gallons to millions of L
+      `Quant Unit Cd Desc (LQUCD)` == "(03) - Million Gallons per Day" ~ `Meas Quant Avge (MQAV)`  * 3.785 * days_per_month,
+      # converts gallons to L and day to month
+      `Quant Unit Cd Desc (LQUCD)` == "(78) - Gallons per Minute" ~ `Meas Quant Avge (MQAV)`  / 10 ^ 6 * 3.785 * 60 * 24 * days_per_month,
+      # converts gallons to millions of L and minute to month
+    )
+)
+
+#converting all N parameters to mass terms of nitrogen and not others (i.e. ammonia, nitrite, etc.)
+
+
+dat$`Meas Conc Avge (MCAV)` <-  ifelse(
+  dat$param == "00608 - Nitrogen, ammonia dissolved",
+  dat$`Meas Conc Avge (MCAV)` * 14.0067 / 17.031,
+  dat$`Meas Conc Avge (MCAV)`
+)
+
+dat$`Meas Conc Avge (MCAV)` <- ifelse(
+  dat$param == "34726 - Nitrogen, ammonia, total (as NH3)",
+  dat$`Meas Conc Avge (MCAV)` * 14.0067 / 17.031,
+  dat$`Meas Conc Avge (MCAV)`
+)
+
+dat$`Meas Conc Avge (MCAV)` <- ifelse(
+  dat$param ==  "71850 - Nitrogen, Nitrate Total (As No3)" ,
+  dat$`Meas Conc Avge (MCAV)` * 14.0067 / 62.0049,
+  dat$`Meas Conc Avge (MCAV)`
+)
+
+   
+#standardize concentrations to milligrams N per liter  
+dat <- dat %>% mutate(
+  mg_N_per_L=
+    case_when(
+   `Conc Unit Cd Desc (LCUCD)` == "Milligrams Per Liter" ~ `Meas Conc Avge (MCAV)`,
+   `Conc Unit Cd Desc (LCUCD)` == "Micrograms Per Liter" ~ `Meas Conc Avge (MCAV)` / 1000, #convert from micrograms to milligram
+    )
+  )
+
 
 
 ```
+Next, we reduce the number of nitrogen to the following: total nitrogen "TN",
+organic nitrogen "ON", ammonia "NH3", nitrite "NO2", nitrate "NO3", and inorganic N "IN".
+We reduce the flow parameters to the following: flow rate 'flow_rate", 
+maximum flow rate "flow_max_24h", total flow "flow_total", and dry flow "flow_dry".
+
+```{r}
+#cleaning up duplicate nitrogen and flow parameters 
+dat$param<-as.factor(dat$param)
+
+         
+#dat<-dat %>% mutate(param_simple=recode(dat$param,
+#cleaning up duplicate nitrogen and flow parameters 
+dat$param_simple <- recode(dat$param,
+
+    # #Nitrogen parameters
+    "00600 - Nitrogen, Total (As N)" = "TN",
+    "00605 - Nitrogen, Organic Total (As N)" = "ON",
+    "00608 - Nitrogen, Ammonia Dissolved" = "NH3",
+    "00610 - Nitrogen, Ammonia Total (As N)" = "NH3",
+    "00615 - Nitrogen, Nitrite Total (As N)" = "NO2",
+    "00620 - Nitrogen, Nitrate Total (As N)" = "NO3",
+    "00625 - Nitrogen, Kjeldahl, Total (As N)" = "TN",
+    "00630 - Nitrite Plus Nitrate Total 1 Det. (As N)" = "IN",
+    "34726 - Nitrogen, Ammonia, Total (As Nh3)" = "NH3",
+    "49579 - Nitrogen, Total Kjeldahl" = "TN",
+    "51087 - Nitrogen, Kjeldahl, Total (Tkn) (Water)" = "TN",
+    "71850 - Nitrogen, Nitrate Total (As No3)" ="NO3",
+    #flow parameters
+    "00056 - Flow Rate" = "flow_rate",
+    "74076 - Flow" = "flow_rate",
+    "00058 - Flow Rate" = "flow_rate",
+    "82220 - Flow, Total" = "flow_total",
+    
+  )
+
+#analyzing distribution of parameters
+levels(dat$param_simple)
+
+levels<-dat %>%
+  group_by(param_simple) %>%
+  tally()
+
+ggplot(levels, aes(param_simple,n))+
+  geom_col() +
+  ylab("count of observations")
+
+# 
+# levels(dat$Parameter)
+# 
+# levels<-dat %>%
+#   group_by(Parameter) %>%
+#   tally()
+# 
+# ggplot(levels, aes(Parameter,n))+
+#   geom_col() +
+#   ylab("count of observations")+
+#   theme(axis.text.x=element_text(angle = 60, hjust=1))
+
+
+```
+
+Let's separate the keys for which kg N/month loads already exist from those which don't.
+
+```{r}
+#review duplicates
+dat %>%
+  filter(!is.na(kg_per_month)) %>%
+  filter(param_simple=="TN") %>%
+  group_by(key)%>%
+  tally() %>%
+  arrange(desc(n))
+
+#subset of data that report loads
+N_load<- dat %>%
+  group_by(key) %>%
+  filter(!is.na(kg_per_month)) %>%
+    #removing unwanted columns
+  select(
+    !c("Monitoring Dt (MVDT)",
+        "Discharge Designator (DRID)", 
+       "Parameter Cd (PRAM)",
+       "Monitoring Location (MLOC)",
+       "#MULTIVALUE",   
+       "Meas Quant Maxm (MQMX)", 
+       "Quant Unit Cd (LQUC)",
+       "Quant Unit Cd Desc (LQUCD)",
+       "Meas Conc Minm (MCMN)",
+       "Meas Conc Maxm (MCMX)",
+       "Meas Conc Maxm (MCMX)_1",
+       "Conc Unit Cd (LCUC)",
+       "Conc Unit Cd Desc (LCUCD)" )
+  ) %>%
+  distinct() #removing any duplicate rows
+
+
+#check if there are duplicates per key and one parameter
+N_load %>%
+  group_by(key)%>%
+  filter(param_simple=="TN") %>%
+  tally() %>%
+  arrange(desc(n))
+# there are no duplicates
+
+#pivoting the TN and NH3 observations into wide format and removing flow and concentration columns
+N_load_a<-N_load %>%
+   pivot_wider(names_from = param_simple,
+              values_from = kg_per_month) %>%
+  select(-million_L_per_month,- mg_N_per_L ) %>%
+  rename(kg_N_TN_per_month=TN,
+         kg_N_NH3_per_month=NH3)
+
+
+```
+
+Here we pivot the data wider calculate loads based on the concentrations and flow data, and remove the concentration and flow columns after we use them.
+
+
+```{r}
+#function to id columns with all NAs
+not_all_na <- function(x) any(!is.na(x))
+
+#review duplicates
+dat %>%
+  filter(is.na(kg_per_month)) %>%
+  group_by(key, param_simple)%>%
+  tally() %>%
+  arrange(desc(n))
+
+#subset of data that DO NOT report loads, then
+#pivot wider and then remove columns with only NAs (since some parameter/unit combinations that don't make sense)
+flow_N_concentration <- dat %>%
+  group_by(key) %>%
+  filter(is.na(kg_per_month)) %>%
+   #removing unwanted columns
+  select(
+    !c("Monitoring Dt (MVDT)",
+        "Discharge Designator (DRID)", 
+       "Parameter Cd (PRAM)",
+       "Monitoring Location (MLOC)",
+       "#MULTIVALUE",   
+       "Meas Quant Maxm (MQMX)", 
+       "Quant Unit Cd (LQUC)",
+       "Quant Unit Cd Desc (LQUCD)",
+       "Meas Conc Minm (MCMN)",
+       "Meas Conc Maxm (MCMX)",
+       "Meas Conc Maxm (MCMX)_1",
+       "Conc Unit Cd (LCUC)",
+       "Conc Unit Cd Desc (LCUCD)" )
+  ) %>%
+   pivot_wider(names_from = param_simple,
+              values_from = c(mg_N_per_L, million_L_per_month)) %>%
+              #,
+              #values_fn = mean) %>%
+  select_if(not_all_na) 
+
+#calculating N loads
+N_load_b <- flow_N_concentration %>%
+  mutate(kg_N_TN_per_month = mg_N_per_L_TN * million_L_per_month_flow_rate) %>%
+  mutate(kg_N_ON_per_month = mg_N_per_L_ON * million_L_per_month_flow_rate) %>%
+  mutate(kg_N_NH3_per_month = mg_N_per_L_NH3 * million_L_per_month_flow_rate) %>%
+  mutate(kg_N_NO2_per_month = mg_N_per_L_NO2 * million_L_per_month_flow_rate) %>%
+  mutate(kg_N_NO3_per_month = mg_N_per_L_NO3 * million_L_per_month_flow_rate) %>%
+  select(
+    -mg_N_per_L_TN,
+    -mg_N_per_L_ON,
+    -mg_N_per_L_NH3,
+    -mg_N_per_L_NO2,
+    -mg_N_per_L_NO3,
+    -million_L_per_month_flow_rate,
+    -stat
+  )
+
+#combine N columns in N_load_b to standardize and join dataframes
+names(N_load_b)
+
+
+N_load_b$kg_N_inorganic_per_month <- N_load_b$kg_N_NH3_per_month +
+  N_load_b$kg_N_NO3_per_month +
+  N_load_b$kg_N_NO2_per_month
+
+#adding organic N and inorganic N together as "composite" N
+N_load_b$kg_N_sum_per_month <- N_load_b$kg_N_ON_per_month +
+  N_load_b$kg_N_inorganic_per_month
+
+#remove intermediate columns we no longer need
+N_load_b <- N_load_b %>%
+  select(
+    -kg_N_NH3_per_month,-kg_N_NO3_per_month,
+    -kg_N_NO2_per_month,
+    -kg_N_inorganic_per_month,
+    -kg_N_ON_per_month
+  )
+
+#combine the different N columns; use total N when reported, or the sum of all other
+#forms of N if TN is not reported
+N_load_b$kg_N_TN_per_month <-
+  ifelse(
+    !is.na(N_load_b$kg_N_TN_per_month),
+    N_load_b$kg_N_TN_per_month,
+    N_load_b$kg_N_sum_per_month
+  )
+
+#remove N sum column
+N_load_b<- N_load_b %>%
+  select(-kg_N_sum_per_month)
+
+names(N_load_b)
+
+#for N_load_a
+#combine the different N columns; use total N when reported, or the sum of all other
+#forms of N if TN is not reported
+
+N_load_a$kg_N_TN_per_month <-
+  ifelse(
+    !is.na(N_load_a$kg_N_TN_per_month),
+    N_load_a$kg_N_TN_per_month,
+    N_load_a$kg_N_NH3_per_month
+  )
+
+#remove NH3 column
+N_load_a<- N_load_a %>%
+  select(-kg_N_NH3_per_month)
+
+names(N_load_a)
+
+#combine dataframes
+N_load<-rbind(N_load_a,N_load_b)
