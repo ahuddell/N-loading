@@ -121,6 +121,8 @@ dat<-dat%>%
   filter(!Parameter=="50047 - Flow, maximum during 24 hr period") %>%
   filter(!Parameter=="00059 - Flow rate, instantaneous") %>%
   filter(!Parameter=="51061 - Flow (dry weather)") %>%
+  filter(!Parameter=="00625 - Nitrogen, Kjeldahl, total (as N)") %>%
+
   
   #I'm not sure which designator is correct, but we'll limit analysis to 1 for now 
   #since it is most frequently reported
@@ -213,7 +215,6 @@ dat$param_simple <- recode(dat$Parameter,
     "00610 - Nitrogen, ammonia total (as N)" = "NH3",
     "00615 - Nitrogen, nitrite total (as N)" = "NO2",
     "00620 - Nitrogen, nitrate total (as N)" = "NO3",
-    "00625 - Nitrogen, Kjeldahl, total (as N)" = "TN",
     "51445 - Nitrogen, Total" = "TN",
     "00608 - Nitrogen, ammonia dissolved" = "NH3",
     "00630 - Nitrite + Nitrate total (as N)" = "IN",

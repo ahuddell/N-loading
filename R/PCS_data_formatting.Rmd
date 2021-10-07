@@ -83,6 +83,7 @@ dat<-dat%>%
   filter(!param=="50047 - Flow, Maximum During 24 Hr Period") %>%
   filter(!param=="00059 - Flow Rate, Instantaneous") %>%
   filter(!param=="51061 - Flow (Dry Weather)") %>%
+  filter(!param== "00625 - Nitrogen, Kjeldahl, Total (As N)") %>%
   #I'm not sure which designator is correct, but we'll limit analysis to 1 for now 
   #since it is most frequently reported
   filter(`Discharge Designator (DRID)`=="1")
@@ -183,7 +184,6 @@ dat$param_simple <- recode(dat$param,
     "00610 - Nitrogen, Ammonia Total (As N)" = "NH3",
     "00615 - Nitrogen, Nitrite Total (As N)" = "NO2",
     "00620 - Nitrogen, Nitrate Total (As N)" = "NO3",
-    "00625 - Nitrogen, Kjeldahl, Total (As N)" = "TN",
     "00630 - Nitrite Plus Nitrate Total 1 Det. (As N)" = "IN",
     "34726 - Nitrogen, Ammonia, Total (As Nh3)" = "NH3",
     "49579 - Nitrogen, Total Kjeldahl" = "TN",
@@ -208,17 +208,17 @@ ggplot(levels, aes(param_simple,n))+
   geom_col() +
   ylab("count of observations")
 
-# 
-# levels(dat$Parameter)
-# 
-# levels<-dat %>%
-#   group_by(Parameter) %>%
-#   tally()
-# 
-# ggplot(levels, aes(Parameter,n))+
-#   geom_col() +
-#   ylab("count of observations")+
-#   theme(axis.text.x=element_text(angle = 60, hjust=1))
+
+levels(dat$param)
+
+levels<-dat %>%
+  group_by(param) %>%
+  tally()
+
+ggplot(levels, aes(param,n))+
+  geom_col() +
+  ylab("count of observations")+
+  theme(axis.text.x=element_text(angle = 60, hjust=1))
 
 
 ```
@@ -290,9 +290,50 @@ dat %>%
   tally() %>%
   arrange(desc(n))
 
+#many parameters have duplicates that we need to resolve before pivoting
+
+#separating different flow parameters to remove duplicates
+
+flow_56 <- dat %>%
+  filter(is.na(kg_per_month)) %>%
+  group_by(key) %>%
+  filter(any(param == '00056 - Flow Rate')) %>%
+  filter(param == '00056 - Flow Rate')
+
+flow_76 <- dat %>%
+  filter(is.na(kg_per_month)) %>%
+  group_by(key) %>%
+  filter(!any(param == '00056 - Flow Rate')) %>%
+  filter(param == '74076 - Flow')
+
+flow_58 <- dat %>%
+  filter(is.na(kg_per_month)) %>%
+  group_by(key) %>%
+  filter(!any(param == '00056 - Flow Rate')) %>%
+  filter(!any(param == '74076 - Flow')) %>%
+  filter(param == '00058 - Flow Rate')
+
+flow_cleaned<-rbind(flow_56,flow_76,flow_58) 
+
+#review duplicates
+flow_cleaned %>%
+  filter(is.na(kg_per_month)) %>%
+  group_by(key, param_simple)%>%
+  tally() %>%
+  arrange(desc(n))
+
+#now there are only 3 duplicated rows; 2 of which are for max values
+#and this one CT0001180_1_1989-12-31 has true duplicates; we can just remove it
+
+flow_cleaned <- flow_cleaned %>% 
+  filter(key!='CT0001180_1_1989-12-31') %>%
+  filter(key!='CT0001406_3_1989-12-31') %>%
+  filter(key!='CT0001406_4_1989-12-31')
+
+
 #subset of data that DO NOT report loads, then
 #pivot wider and then remove columns with only NAs (since some parameter/unit combinations that don't make sense)
-flow_N_concentration <- dat %>%
+flow_N_concentration <- flow_cleaned %>%
   group_by(key) %>%
   filter(is.na(kg_per_month)) %>%
    #removing unwanted columns
@@ -313,8 +354,6 @@ flow_N_concentration <- dat %>%
   ) %>%
    pivot_wider(names_from = param_simple,
               values_from = c(mg_N_per_L, million_L_per_month)) %>%
-              #,
-              #values_fn = mean) %>%
   select_if(not_all_na) 
 
 #calculating N loads
