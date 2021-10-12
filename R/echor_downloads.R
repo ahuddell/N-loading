@@ -2,13 +2,89 @@
 
 library(echor)
 library(tidyverse)
+library(here)
 
+requestURL <- function(query) {
+  
+  urlBuildList <- structure(list(scheme = "https",
+                                 hostname = "echodata.epa.gov",
+                                 port = NULL, 
+                                 path = "echo/cwa_rest_services.get_download", 
+                                 query = query), 
+                            class = "url")
+  return(httr::build_url(urlBuildList))
+}
+
+getDownload <- function(service, qid, qcolumns, col_types = NULL) {
+  ## build the request URL statement
+  if (service == "sdw") {
+    path <- "echo/sdw_rest_services.get_download"
+  } else if (service == "cwa") {
+    path <- "echo/cwa_rest_services.get_download"
+  } else if (service == "caa") {
+    path <- "echo/air_rest_services.get_download"
+  } else {
+    stop("internal error in getDownload, incorrect service argument supplied")
+  }
+  qid <- paste0("qid=", qid)
+  query <- paste(qid, qcolumns, sep = "&")
+  getURL <- requestURL(path = path, query = query)
+  
+  ## Make the request
+  request <- httr::RETRY("GET", getURL)
+  
+  ## Check for valid response for serve, else returns error
+  resp_check(request)
+  
+  info <- httr::content(request, as = "raw")
+  
+  info <- readr::read_csv(info, col_names = TRUE,
+                          col_types = col_types,
+                          na = " ",
+                          locale = readr::locale(date_format = "%m/%d/%Y"))
+  
+  return(info)
+}
+
+getDownload(service="cwa", qid=df$id, qcolumns=c(1:11,14,23,24,25,26,30,36,58,60,63,64,65,67,86,206))
+
+#this was my old query that worked
 df <- tibble::tibble("id" = c('CT0000086','CT0000434',
                               'CT0000582','CT0000744')
-                     )
-                      
+)
+
 df <- downloadDMRs(df, id)
 df<-df$dmr
+
+echoGetEffluent(p_id = 'tx0119407', parameter_code = '50050')
+#df<-as_tibble(df)
+# df<-unnest(df)
+
+
+library(httr)
+r <- GET("http://httpbin.org/get")
+
+ids<-read_csv(here('data','data_request_LIS_AH.csv'))
+
+ids_1_10<-ids[30,]
+df <- downloadDMRs(df=ids_1_10, iColumn=id, verbose=TRUE)
+df<-df$dmr
+
+library(purrr)    
+out_lst <- map(df$url, pfun)
+names(out_lst) <- df$ID 
+pfun <- possibly(f1, otherwise = NA)
+f1 <- function(urllink) {
+  openxlsx::read.xlsx(urllink)
+}
+
+f2 <-  function(urllink) {
+  
+  tryCatch(openxlsx::read.xlsx(urllink), 
+           error = function(e) message("error occured"))
+}
+out_lst2 <- lapply(df$url, f2)
+
 #df<-as_tibble(df)
 # df<-unnest(df)
 
