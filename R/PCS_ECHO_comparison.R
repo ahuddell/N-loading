@@ -2,7 +2,131 @@ library(tidyverse)
 library(lubridate)
 library(here)
 
-PCS<-read_csv(file=here("data","PCS_LIS_watershed_data.csv"))
-ECHO<-read_csv(file = here("data", "ECHO_data_clean.csv"))
+#load both datasets
+PCS_all<-read_csv(file=here("data","PCS_data_clean.csv"))
+ECHO_all<-read_csv(file = here("data", "ECHO_data_clean_all.csv"))
+
+#organizing keys
+PCS_key<-list(unique(PCS$key))
+ECHO_key<-tibble(key=as.character(unique(ECHO$key)))
+
+#filtering for keys in both datasets
+dup_keys<-ECHO_key %>% 
+  filter(key %in% unlist(PCS_key))
+dup_keys<-list(dup_keys)
+
+#add column identifier (PCS or ECHO) and filter and join data
+PCS<-PCS_all %>% 
+    filter(key %in% unlist(dup_keys)) %>%
+  mutate(source=rep('PCS'))%>%
+  select(key, kg_N_TN_per_month,date,source)
+PCS
+
+ECHO<-ECHO_all %>% 
+  filter(key %in% unlist(dup_keys)) %>%
+  mutate(source=rep('ECHO')) %>%
+  select(key, kg_N_TN_per_month,date,source)
+ECHO
+
+dat<-left_join(PCS, ECHO, by = 'key', suffix = c(".PCS", ".ECHO"))
 
 
+
+ggplot(dat, aes(x=kg_N_TN_per_month.ECHO, y=kg_N_TN_per_month.PCS)) +
+  geom_point() +
+  geom_abline(slope=1)
+  
+#some points clearly differ
+dat$ECHO_minus_PCS<-dat$kg_N_TN_per_month.ECHO-
+  dat$kg_N_TN_per_month.PCS
+
+difference<-filter(dat, ECHO_minus_PCS!=0)
+
+write_csv(x=difference,
+            file = here('data', 'PCS_ECHO_problematic_data.csv')
+            )
+
+
+#plot observations by permit/outfall
+dim(ECHO_all) #still 44,000
+length(levels(as.factor(ECHO_all$key))) #still 43,376--did not remove additional keys
+length(levels(as.factor(ECHO_all$permit_outfall))) #only 328
+
+ECHO_all %>% 
+  filter(!is.na(kg_N_TN_per_month)) %>%
+  ggplot(aes(x=permit_outfall, y=kg_N_TN_per_month)) +
+  geom_boxplot()+
+  geom_point() +
+  ggtitle('ECHO data')+
+  ylab('Monthly TN load (kg N)')+
+  theme(axis.text.x = element_text(angle = 60, hjust=1))
+
+#plot observations by permit/outfall
+PCS_all %>% 
+  filter(!is.na(kg_N_TN_per_month)) %>%
+  ggplot(aes(x=permit_outfall, y=kg_N_TN_per_month)) +
+  geom_boxplot()+
+  geom_point() +
+  ggtitle('PCS data')+
+  ylab('Monthly TN load (kg N)')+
+  theme(axis.text.x = element_text(angle = 60, hjust=1))
+
+
+#plot observations by month
+ECHO_all %>% 
+  filter(!is.na(kg_N_TN_per_month)) %>%
+  ggplot(aes(x=as.factor(month(date)), y=kg_N_TN_per_month)) +
+  geom_point() +
+  geom_violin()+
+  geom_smooth(method = "loess")+
+  ggtitle('ECHO data')+
+  ylab('Monthly TN load (kg N)')+
+  theme(axis.text.x = element_text(angle = 60, hjust=1))
+
+#plot observations by year
+ECHO_all %>% 
+  filter(!is.na(kg_N_TN_per_month)) %>%
+  ggplot(aes(x=as.factor(year(date)), y=kg_N_TN_per_month)) +
+  geom_point() +
+  geom_violin(draw_quantiles = T)+
+  geom_smooth(method = "loess")+
+  ggtitle('ECHO data')+
+  ylab('Monthly TN load (kg N)')+
+  theme(axis.text.x = element_text(angle = 60, hjust=1))+
+  ylim(0,30)
+
+hist(ECHO_all$kg_N_TN_per_month)
+
+ECHO_nonzero<-filter(ECHO_all,kg_N_TN_per_month>0)
+summary(lm(log(ECHO_nonzero$kg_N_TN_per_month)~month(ECHO_nonzero$date)))
+
+lm1<-aov(lm(log(ECHO_nonzero$kg_N_TN_per_month)~as.factor(year(ECHO_nonzero$date))))
+TukeyHSD(lm1)
+
+#plot observations by month
+PCS_all %>% 
+  filter(!is.na(kg_N_TN_per_month)) %>%
+  ggplot(aes(x=month(date), y=kg_N_TN_per_month)) +
+  geom_boxplot()+
+  geom_point() +
+  geom_smooth(method = "loess")+
+  ggtitle('PCS data')+
+  ylab('Monthly TN load (kg N)')+
+  theme(axis.text.x = element_text(angle = 60, hjust=1))
+
+#plot observations by year
+PCS_all %>% 
+  filter(!is.na(kg_N_TN_per_month)) %>%
+  ggplot(aes(x=year(date), y=kg_N_TN_per_month)) +
+  geom_point() +
+  geom_smooth(method = "loess")+
+  ggtitle('PCS data')+
+  ylab('Monthly TN load (kg N)')+
+  theme(axis.text.x = element_text(angle = 60, hjust=1))
+
+hist(PCS_all$kg_N_TN_per_month)
+
+PCS_nonzero<-filter(PCS_all,kg_N_TN_per_month>0)
+summary(lm(log(PCS_nonzero$kg_N_TN_per_month)~month(PCS_nonzero$date)))
+
+summary(lm(log(PCS_nonzero$kg_N_TN_per_month)~year(PCS_nonzero$date)))
