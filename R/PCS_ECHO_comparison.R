@@ -4,7 +4,7 @@ library(here)
 
 #load both datasets
 PCS_all<-read_csv(file=here("data","PCS_data_clean.csv"))
-ECHO_all<-read_csv(file = here("data", "ECHO_data_clean_all.csv"))
+ECHO_all<-read_csv(file = here("data", "ECHO_data_clean.csv"))
 
 #organizing keys
 PCS_key<-list(unique(PCS$key))
@@ -17,7 +17,7 @@ dup_keys<-list(dup_keys)
 
 #add column identifier (PCS or ECHO) and filter and join data
 PCS<-PCS_all %>% 
-    filter(key %in% unlist(dup_keys)) %>%
+  filter(key %in% unlist(dup_keys)) %>%
   mutate(source=rep('PCS'))%>%
   select(key, kg_N_TN_per_month,date,source)
 PCS
@@ -35,7 +35,7 @@ dat<-left_join(PCS, ECHO, by = 'key', suffix = c(".PCS", ".ECHO"))
 ggplot(dat, aes(x=kg_N_TN_per_month.ECHO, y=kg_N_TN_per_month.PCS)) +
   geom_point() +
   geom_abline(slope=1)
-  
+
 #some points clearly differ
 dat$ECHO_minus_PCS<-dat$kg_N_TN_per_month.ECHO-
   dat$kg_N_TN_per_month.PCS
@@ -43,15 +43,11 @@ dat$ECHO_minus_PCS<-dat$kg_N_TN_per_month.ECHO-
 difference<-filter(dat, ECHO_minus_PCS!=0)
 
 write_csv(x=difference,
-            file = here('data', 'PCS_ECHO_problematic_data.csv')
-            )
+          file = here('data', 'PCS_ECHO_problematic_data.csv')
+)
 
 
 #plot observations by permit/outfall
-dim(ECHO_all) #still 44,000
-length(levels(as.factor(ECHO_all$key))) #still 43,376--did not remove additional keys
-length(levels(as.factor(ECHO_all$permit_outfall))) #only 328
-
 ECHO_all %>% 
   filter(!is.na(kg_N_TN_per_month)) %>%
   ggplot(aes(x=permit_outfall, y=kg_N_TN_per_month)) +
