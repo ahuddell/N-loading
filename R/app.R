@@ -23,14 +23,10 @@ dat_sf <- st_read(here(
   "data", "huc_8_dat_join",
   "N_load_huc_join.shp"
 ))
-
-dat_sf_annual<- dat_sf %>%
-  group_by(huc8, year=year(date)) %>%
-  summarise(kgN_huc8_yr=sum(kgN_huc8,na.rm=T)) %>%
-  ungroup()
+dat_sf$year<-year(dat_sf$date) #add a year column
 
 # same data as data frame object for plots
-dat <- as.data.frame(dat_sf)
+dat <- read_csv(here("data", "ECHO_data_clean.csv"))
 
 dat_WQ1<- read_csv(here(
   "data", "DEEP_WQ_thru_2015.csv"
@@ -83,12 +79,12 @@ ui <- function(request) {
           sliderInput(
             inputId = "year",
             label="Year",
-            min = min(dat_sf_annual$year),
-            max = max(dat_sf_annual$year),
-            value = min(dat_sf_annual$year),
+            min = min(dat_sf$year),
+            max = max(dat_sf$year),
+            value = min(dat_sf$year),
            timeFormat = "%Y",
            sep = "",
-            step = 1
+          step = 1
           )
         ),
         column(
@@ -163,7 +159,7 @@ server <- function(input, output, session) {
   ## Tab 1
  # Reactive expression for the data subsetted to what the user selected
   filtered_year <- reactive({
-    dat_sf_annual %>% filter(year == input$year) 
+    dat_sf %>% filter(year == input$year) 
   })
 
   # filteredLabels <- reactive({
@@ -178,7 +174,7 @@ server <- function(input, output, session) {
 
   # render base map
   output$map <- renderLeaflet({
-    leaflet(dat_sf_annual) %>%
+    leaflet(dat_sf) %>%
       addProviderTiles(providers$Esri.WorldPhysical) %>%
       addLegend(
         pal = pal,
@@ -186,10 +182,10 @@ server <- function(input, output, session) {
         opacity = 0.7,
         title = NULL,
         position = "bottomright") %>%
-      fitBounds(~ unname(st_bbox(dat_sf_annual)[1]),
-                ~ unname(st_bbox(dat_sf_annual)[2]),
-                ~ unname(st_bbox(dat_sf_annual)[3]),
-                ~ unname(st_bbox(dat_sf_annual)[4])) %>%
+      fitBounds(~ unname(st_bbox(dat_sf)[1]),
+                ~ unname(st_bbox(dat_sf)[2]),
+                ~ unname(st_bbox(dat_sf)[3]),
+                ~ unname(st_bbox(dat_sf)[4])) %>%
 
       addLabelOnlyMarkers(
         data = centroids,
@@ -200,26 +196,24 @@ server <- function(input, output, session) {
           noHide = T,
           direction = 'center',
           textOnly = TRUE,
-          
+
         )
       )
 
   })
-  
+
   # add reactive choropleth layer
   observe({
     leafletProxy("map", data = filtered_year()) %>%
       #clearShapes() %>%
       addPolygons(
-        fillColor = ~ pal(kgN_huc8_yr),
+        fillColor = ~ pal(kgN_huc8),
         weight = 2,
         color = "black",
         opacity = 1,
         fillOpacity = 0.7)
   })
-  
 
-  
 
   # Reactive expression for the data subsetted to what the user selected
   filtered_watershed_name <- reactive({
@@ -233,7 +227,7 @@ server <- function(input, output, session) {
   output$plot1 <- renderPlot(
     ggplot(
       data = filtered_watershed_name(),
-      aes(x = date, y = kgN_huc8, col = name,
+      aes(x = date, y = kg_N_TN_per_month, col = name,
           fill=name)) +
       ylab(expression(paste(
         'Monthly N load (kg N ',ha^-1,yr^-1,')')))+
@@ -246,34 +240,34 @@ server <- function(input, output, session) {
       scale_color_viridis(name="Watershed", discrete=TRUE) +
       scale_fill_viridis(name="Watershed", discrete=TRUE)
   )
-  
-  ## Tab 2
-  # Reactive expression for the data subsetted to what the user selected
-  # column_se<-reactive({
-  #   par_se<-column_par_se<-[input$WQ_param]
-  # })
-  # 
-  # select_dat_WQ <- reactive({
-  #   dat_WQ %>% select(input$WQ_param, station_name,Start_Date) 
-  # })
-  # 
-  # render plot2
-  output$plot2 <- renderPlot(
-    ggplot(
-      data = dat_WQ,
-      aes(x = Start_Date, y = input$WQ_param, col = station_name,
-          fill=station_name)) +
-      # ylab(expression(paste(
-      #   'Monthly N load (kg N ',ha^-1,yr^-1,')')))+
-      xlab('Date')+
-      geom_point(alpha = 0.7) +
-      geom_smooth(method = "loess", se = T) +
-      theme_minimal() +
-      theme(text = element_text(size=18),
-            legend.position = "none")+
-      scale_color_viridis(name="Station Name", discrete=TRUE) +
-      scale_fill_viridis(name="Station Name", discrete=TRUE)
-  )
+
+  # ## Tab 2
+  # # Reactive expression for the data subsetted to what the user selected
+  # # column_se<-reactive({
+  # #   par_se<-column_par_se<-[input$WQ_param]
+  # # })
+  # # 
+  # # select_dat_WQ <- reactive({
+  # #   dat_WQ %>% select(input$WQ_param, station_name,Start_Date) 
+  # # })
+  # # 
+  # # render plot2
+  # output$plot2 <- renderPlot(
+  #   ggplot(
+  #     data = dat_WQ,
+  #     aes(x = Start_Date, y = input$WQ_param, col = station_name,
+  #         fill=station_name)) +
+  #     # ylab(expression(paste(
+  #     #   'Monthly N load (kg N ',ha^-1,yr^-1,')')))+
+  #     xlab('Date')+
+  #     geom_point(alpha = 0.7) +
+  #     geom_smooth(method = "loess", se = T) +
+  #     theme_minimal() +
+  #     theme(text = element_text(size=18),
+  #           legend.position = "none")+
+  #     scale_color_viridis(name="Station Name", discrete=TRUE) +
+  #     scale_fill_viridis(name="Station Name", discrete=TRUE)
+  # )
 
   # render plot3
   # output$plot3 <- renderPlot(
