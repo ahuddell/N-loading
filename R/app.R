@@ -32,6 +32,15 @@ dat_sf_annual<- dat_sf %>%
 # same data as data frame object for plots
 dat <- as.data.frame(dat_sf)
 
+dat_WQ1<- read_csv(here(
+  "data", "DEEP_WQ_thru_2015.csv"
+))
+dat_WQ2<- read_csv(here(
+  "data", "DEEP_WQ_2015_present.csv"
+))
+
+dat_WQ<-rbind(dat_WQ1,dat_WQ2)
+
 # color palette for choropleth map
 bins <- c(0,25000,50000,100000,200000,300000,550500)
 pal <- colorBin("Blues",bin=bins, na.color = "808080",
@@ -100,7 +109,47 @@ ui <- function(request) {
           plotOutput("plot1")
         )
       ),
-    )
+    ),
+  
+#Tab 2
+  tabPanel(
+    "pH and DO",
+    fluidRow(
+      height = 4,
+      tags$style(type = "text/css", ".selectize-input{ z-index: 999; }"),
+      h3("N loading"),
+      p(
+        "This is a data visualization tool summarizing CT DEEP "
+      ),
+      column(
+        width = 6,
+        selectInput(
+          inputId = "WQ_param",
+          label="Water Quality parameter",
+          choices =c('pH'="pH",
+          'Dissolved Oxygen mg/L'="corrected_oxygen"),
+          selected="corrected_oxygen"
+        )
+      ),
+      column(
+        width = 6,
+        selectizeInput(
+          "watershed_name",
+          "Watershed",
+          choices = dat$name,
+          multiple = T,
+          selected = "Housatonic"
+        )
+      )
+    ),
+    fluidRow(
+      splitLayout(
+        cellWidths = c("50%", "50%"),
+        plotOutput("plot2"),
+        plotOutput("plot3")
+      )
+    ),
+  )
   )
 }
 
@@ -126,7 +175,7 @@ server <- function(input, output, session) {
   #     ) %>% lapply(htmltools::HTML)
   #   )
   # })
-  #
+
   # render base map
   output$map <- renderLeaflet({
     leaflet(dat_sf_annual) %>%
@@ -180,7 +229,7 @@ server <- function(input, output, session) {
   })
 
 
-  # render plot
+  # render plot1
   output$plot1 <- renderPlot(
     ggplot(
       data = filtered_watershed_name(),
@@ -197,6 +246,52 @@ server <- function(input, output, session) {
       scale_color_viridis(name="Watershed", discrete=TRUE) +
       scale_fill_viridis(name="Watershed", discrete=TRUE)
   )
+  
+  ## Tab 2
+  # Reactive expression for the data subsetted to what the user selected
+  # column_se<-reactive({
+  #   par_se<-column_par_se<-[input$WQ_param]
+  # })
+  # 
+  # select_dat_WQ <- reactive({
+  #   dat_WQ %>% select(input$WQ_param, station_name,Start_Date) 
+  # })
+  # 
+  # render plot2
+  output$plot2 <- renderPlot(
+    ggplot(
+      data = dat_WQ,
+      aes(x = Start_Date, y = input$WQ_param, col = station_name,
+          fill=station_name)) +
+      # ylab(expression(paste(
+      #   'Monthly N load (kg N ',ha^-1,yr^-1,')')))+
+      xlab('Date')+
+      geom_point(alpha = 0.7) +
+      geom_smooth(method = "loess", se = T) +
+      theme_minimal() +
+      theme(text = element_text(size=18),
+            legend.position = "none")+
+      scale_color_viridis(name="Station Name", discrete=TRUE) +
+      scale_fill_viridis(name="Station Name", discrete=TRUE)
+  )
+
+  # render plot3
+  # output$plot3 <- renderPlot(
+  #   ggplot(
+  #     data = filtered_watershed_name(),
+  #     aes(x = date, y = kgN_huc8, col = name,
+  #         fill=name)) +
+  #     ylab(expression(paste(
+  #       'Monthly N load (kg N ',ha^-1,yr^-1,')')))+
+  #     xlab('Date')+
+  #     geom_point(alpha = 0.7) +
+  #     geom_smooth(method = "loess", se = T) +
+  #     theme_minimal() +
+  #     theme(text = element_text(size=18),
+  #           legend.position = "bottom")+
+  #     scale_color_viridis(name="Watershed", discrete=TRUE) +
+  #     scale_fill_viridis(name="Watershed", discrete=TRUE)
+  # )
 }
 
 
