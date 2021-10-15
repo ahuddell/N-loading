@@ -64,6 +64,7 @@ ggplot(levels, aes(Designator,n))+
   geom_col() +
   ylab("count of observations")
 
+
 #looking at distribution of monitoring locations
 levels(dat$`Monitoring Location`)
 
