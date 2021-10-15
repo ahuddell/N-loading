@@ -26,7 +26,7 @@ dat_sf <- st_read(here(
 dat_sf$year<-year(dat_sf$date) #add a year column
 
 # same data as data frame object for plots
-dat <- read_csv(here("data", "ECHO_data_clean.csv"))
+dat <- read_csv(here("data", "ECHO_data_clean_all.csv"))
 
 dat_WQ1<- read_csv(here(
   "data", "DEEP_WQ_thru_2015.csv"
