@@ -4,18 +4,17 @@ library(sf)
 library(here)
 library(mapview)
 library(leaflet)
-
+library(lubridate)
 
 
 # download HUC8 shapefiles from USGS --------------------------------------
 
-
 #list of HUC 8 ids in LIS watershed
-id<-c('01080101','01080102','01080103','01080104','01080105','01080106','01080107','01080201',
-      '01080202','01080203','01080204','01080205','01080206','01080207','01100001',
-      '01100002','01100003','01100004','01100005','01100006','02030102','02030201')
+id<-c('01080101','01080102','01080103','01080104','01080105','01080106','01080107',
+      '01080201','01080202','01080203','01080204','01080205','01080206','01080207',
+      '01100001','01100002','01100003','01100004','01100005','01100006','01100007',
+      '01090006','02030102','02030201')
 
-#NOTE: I removed HUC '01090005' because the AWS link is broken
 
 #creating directory to place the zipfiles
 #make this a temp folder later 
@@ -38,7 +37,6 @@ for (hucID in id){
   unzip(zipfile=here('data','dl files', paste0('HUC8_',hucID,'.zip')),
         exdir=here('data','huc8 shapes', paste0('HUC8_',hucID)))
 }
-#problem with '01090005' link broken
 
 #read in each layer manually
 huc8_01080101<-st_read(
@@ -86,6 +84,9 @@ huc8_01080207<-st_read(
 huc8_01080207<-st_read(
   here('data','huc8 shapes',paste0('HUC8_','01080207'),'Shape'), 
   layer='WBDHU8')
+huc8_01090006<-st_read(
+  here('data','huc8 shapes',paste0('HUC8_','01090006'),'Shape'), 
+  layer='WBDHU8')
 huc8_01100001<-st_read(
   here('data','huc8 shapes',paste0('HUC8_','01100001'),'Shape'), 
   layer='WBDHU8')
@@ -104,6 +105,9 @@ huc8_01100005<-st_read(
 huc8_01100006<-st_read(
   here('data','huc8 shapes',paste0('HUC8_','01100006'),'Shape'), 
   layer='WBDHU8')
+huc8_01100007<-st_read(
+  here('data','huc8 shapes',paste0('HUC8_','01100007'),'Shape'), 
+  layer='WBDHU8')
 huc8_02030102<-st_read(
   here('data','huc8 shapes',paste0('HUC8_','02030102'),'Shape'), 
   layer='WBDHU8')
@@ -111,16 +115,18 @@ huc8_02030201<-st_read(
   here('data','huc8 shapes',paste0('HUC8_','02030201'),'Shape'), 
   layer='WBDHU8')
 
+
+
 #join polygons
 huc8_combined <- dplyr::bind_rows(list(huc8_01080101,huc8_01080102,huc8_01080103,
-                                   huc8_01080104,huc8_01080105,huc8_01080106,
-                                   huc8_01080107,huc8_01080201,huc8_01080202,
-                                   huc8_01080203,huc8_01080204,huc8_01080205,
-                                   huc8_01080206,huc8_01080207,huc8_01100001,
-                                   huc8_01100002,huc8_01100003,huc8_01100004,
-                                   huc8_01100005,huc8_01100006,huc8_02030102,
-                                   huc8_02030201))
-#mapview(huc8_combined) #need to add last missing watershed
+                                       huc8_01080104,huc8_01080105,huc8_01080106,
+                                       huc8_01080107,huc8_01080201,huc8_01080202,
+                                       huc8_01080203,huc8_01080204,huc8_01080205,
+                                       huc8_01080206,huc8_01080207,huc8_01090006,
+                                       huc8_01100001,huc8_01100002,huc8_01100003,
+                                       huc8_01100004,huc8_01100005,huc8_01100006,
+                                       huc8_01100007,huc8_02030102,huc8_02030201))
+mapview(huc8_combined) 
 
 #now transforming all CRS
 huc8_combined<-st_transform(huc8_combined, crs=4326)
@@ -131,13 +137,23 @@ huc8_combined<-st_transform(huc8_combined, crs=4326)
 dat<-read_csv( file = here('data', 'ECHO_data_clean.csv'))
 
 
-#calculating monthly TN totals by watershed
-dat_summary<- dat %>%
-  group_by(huc8,date) %>%
-  summarise(kgN_huc8=sum(kg_N_TN_per_month,na.rm=T))
+# #calculating monthly TN totals by watershed
+# dat_summary<- dat %>%
+#   group_by(huc8,date) %>%
+#   summarise(kgN_huc8=sum(kg_N_TN_per_month,na.rm=T))
+
+# #join huc spatial data to monthly totals
+# N_load_huc_join<-left_join(dat_summary,huc8_combined)
+# N_load_huc_join<-st_as_sf(N_load_huc_join)
+# names(N_load_huc_join)
+
+#we only need annual data for the spatial join, so modifying the workflow here
+dat_annual_summary<- dat %>%
+  group_by(huc8, year=year(date)) %>%
+  summarise(kgN_huc8_yr=sum(kg_N_TN_per_month,na.rm=T)) 
 
 #join huc spatial data to monthly totals
-N_load_huc_join<-left_join(dat_summary,huc8_combined)
+N_load_huc_join<-left_join(dat_annual_summary,huc8_combined)
 N_load_huc_join<-st_as_sf(N_load_huc_join)
 names(N_load_huc_join)
 
@@ -166,29 +182,26 @@ centroids <- dat_sf%>%
   slice(1) %>%
   st_centroid() 
 
-#data for map--subset just one month
-one_month_test<-filter(N_load_huc_join, date==median(date,na.rm = T))
-
 #color palette
-#bins <- unname(quantile(one_month_test$kgN_huc8 , c(.2,.6,.8,1)))
+#bins <- unname(quantile(dat_sf$kgN_huc8 , c(.2,.6,.8,1)))
 bins <- c(0,2,3,6,7000,8000)
-pal <- colorBin("Blues", domain = one_month_test$kgN_huc8 , bins = bins)
+pal <- colorBin("Blues", domain = dat_sf$kgN_huc8 , bins = bins)
 #in future make this colorQuantiles with more categories
 
 labels <- sprintf(
   "<strong>%s</strong><br/>%g kg total N / month<sup>-1</sup>",
-  one_month_test$name, one_month_test$kgN_huc8 
+  dat_sf$name, dat_sf$kgN_huc8 
 ) %>% lapply(htmltools::HTML)
 
 #leaflet map
-m <- leaflet(one_month_test) %>%
+m <- leaflet(dat_sf) %>%
   addProviderTiles(providers$OpenStreetMap) %>%
   addPolygons()   %>%
   setView(lat = 43,
           lng = -73.2 ,
           zoom = 6.5) %>%
   addPolygons(
-    fillColor = ~ pal(one_month_test$kgN_huc8),
+    fillColor = ~ pal(dat_sf$kgN_huc8),
     weight = 2,
     color = 'black',
     opacity = 1,
@@ -213,10 +226,3 @@ m <- leaflet(one_month_test) %>%
                                                   direction = 'top', textOnly = TRUE)) 
 
 m
-
-
-
-
-
-
-
