@@ -134,7 +134,7 @@ huc8_combined<-st_transform(huc8_combined, crs=4326)
 # read in our data convert to sf object -----------------------------------
 
 #read data
-dat<-read_csv( file = here('data', 'ECHO_data_clean.csv'))
+dat<-read_csv( file = here('data', 'ECHO_data_clean_with_locations.csv'))
 
 
 # #calculating monthly TN totals by watershed

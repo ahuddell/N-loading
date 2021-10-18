@@ -48,7 +48,7 @@ levels2<-dat %>%
   group_by(`Statistical Base Long Desc`) %>%
   tally()
 
-ggplot(levels2, aes(`Statistical Base Long Desc`,n))+
+levels2 %>% filter(n>1) %>%  ggplot(aes(`Statistical Base Long Desc`,n))+
   geom_col() +
   ylab("count of observations")+
   theme(axis.text.x=element_text(angle = 60, hjust=1))
@@ -63,6 +63,7 @@ levels<-dat %>%
 ggplot(levels, aes(Designator,n))+
   geom_col() +
   ylab("count of observations")
+
 
 #looking at distribution of monitoring locations
 levels(dat$`Monitoring Location`)
@@ -114,10 +115,10 @@ length(levels(as.factor(dat$key))) #149828
 
 ```{r filter functions}
 #check dimensions and levels of permit outfalls
-nrow(dat)-nrow(test)
-length(unique(as.character(dat$permit_outfall)))-length(unique(as.character(test$permit_outfall)))
+# nrow(dat)-nrow(test)
+# length(unique(as.character(dat$permit_outfall)))-length(unique(as.character(test$permit_outfall)))
 
-test<-dat%>%
+dat<-dat%>%
     #removing unwanted discharge codes and monitoring locations
   filter(!grepl("No Dishcharge Code",value))%>%
   filter(`Monitoring Location`=="1") %>% #this drops 158423 rows and 99 permit/outfalls
@@ -515,7 +516,7 @@ names(N_load_a)
 #combine dataframes
 N_load<-rbind(N_load_a,N_load_b)
 
-length(unique(as.character(N_load$permit_outfall))) #only 212 outfalls left
+length(unique(as.character(N_load$permit_outfall))) #328 outfalls with/without locations
 nrow(N_load) #still 43,376--did not remove additional keys
 
 write.csv(N_load,
@@ -551,11 +552,12 @@ outfall_locations$permit_outfall <-
 
 #join locations based on permit number and outfall number
 dim(N_load) #44,848     7
-unique(N_load$permit_outfall) #212 outfalls left
+length(unique(N_load$permit_outfall)) #328 outfalls with/without locations
 
 dim(outfall_locations) # 434725      6
 N_load_out <- left_join(N_load, outfall_locations, by = "permit_outfall")
 dim(N_load_out) #51,028     12
+length(unique(as.character(N_load_out$permit_outfall))) #328 outfalls with locations
 
 ```
 
@@ -590,9 +592,12 @@ dat_join<- left_join(N_load_out, HUC8_outfall_locations, by = "permit_outfall")
 
 dim(N_load_out) #53,599
 dim(dat_join) #53,599
+length(unique(as.character(dat_join$permit_outfall))) #328 outfalls with locations
+
 
 write.csv(dat_join,
           file = here("data", "ECHO_data_clean_with_locations.csv"),
           row.names = F)
+
 
 ```

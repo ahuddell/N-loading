@@ -470,6 +470,11 @@ outfall_locations$permit_outfall <-
 #join locations based on permit number and outfall number
 N_load_out <- left_join(N_load, outfall_locations, by = 'permit_outfall')
 
+length(unique(as.character(N_load$permit_outfall)))
+length(unique(as.character(N_load_out$permit_outfall)))
+dim(N_load_out)
+
+
 ```
 
 Now join the HUC8 IDs to the data.
