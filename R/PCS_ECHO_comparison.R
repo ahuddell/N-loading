@@ -4,11 +4,11 @@ library(here)
 
 #load both datasets
 PCS_all<-read_csv(file=here("data","PCS_data_clean.csv"))
-ECHO_all<-read_csv(file = here("data", "ECHO_data_clean.csv"))
+ECHO_all<-read_csv(file = here("data", "ECHO_data_clean_all.csv"))
 
 #organizing keys
-PCS_key<-list(unique(PCS$key))
-ECHO_key<-tibble(key=as.character(unique(ECHO$key)))
+PCS_key<-list(unique(PCS_all$key))
+ECHO_key<-tibble(key=as.character(unique(ECHO_all$key)))
 
 #filtering for keys in both datasets
 dup_keys<-ECHO_key %>% 
@@ -16,19 +16,19 @@ dup_keys<-ECHO_key %>%
 dup_keys<-list(dup_keys)
 
 #add column identifier (PCS or ECHO) and filter and join data
-PCS<-PCS_all %>% 
+PCS_dup<-PCS_all %>% 
   filter(key %in% unlist(dup_keys)) %>%
   mutate(source=rep('PCS'))%>%
   select(key, kg_N_TN_per_month,date,source)
-PCS
+PCS_dup
 
-ECHO<-ECHO_all %>% 
+ECHO_dup<-ECHO_all %>% 
   filter(key %in% unlist(dup_keys)) %>%
   mutate(source=rep('ECHO')) %>%
   select(key, kg_N_TN_per_month,date,source)
-ECHO
+ECHO_dup
 
-dat<-left_join(PCS, ECHO, by = 'key', suffix = c(".PCS", ".ECHO"))
+dat<-left_join(PCS_dup, ECHO_dup, by = 'key', suffix = c(".PCS", ".ECHO"))
 
 
 
@@ -46,10 +46,9 @@ write_csv(x=difference,
           file = here('data', 'PCS_ECHO_problematic_data.csv')
 )
 
-
 #plot observations by permit/outfall
 ECHO_all %>% 
-  filter(!is.na(kg_N_TN_per_month)) %>%
+  #filter(!is.na(kg_N_TN_per_month)) %>%
   ggplot(aes(x=permit_outfall, y=kg_N_TN_per_month)) +
   geom_boxplot()+
   geom_point() +
@@ -59,7 +58,7 @@ ECHO_all %>%
 
 #plot observations by permit/outfall
 PCS_all %>% 
-  filter(!is.na(kg_N_TN_per_month)) %>%
+  #filter(!is.na(kg_N_TN_per_month)) %>%
   ggplot(aes(x=permit_outfall, y=kg_N_TN_per_month)) +
   geom_boxplot()+
   geom_point() +
