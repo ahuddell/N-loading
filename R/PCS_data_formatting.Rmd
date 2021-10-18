@@ -40,9 +40,6 @@ dat <- dat %>%
 nrow(dat) #there are 196,586 rows
 dat %>% count(key) #there are 95,366 unique keys, so some keys have duplicate rows
 
-#looking at one of they keys:
-test<-dat %>% filter(key=='CT000008611989-01-31')
-
 #plot the frequency of different parameters
 dat$param<-as.factor(dat$'Parameter Cd (PRAM)')
 levels(dat$param)
@@ -257,8 +254,8 @@ N_load<- dat %>%
        'Quant Unit Cd (LQUC)',
        'Quant Unit Cd Desc (LQUCD)',
        'Meas Conc Minm (MCMN)',
-       'Meas Conc Maxm (MCMX)...15',
-       'Meas Conc Maxm (MCMX)...16',
+       #'Meas Conc Maxm (MCMX)...15',
+       #'Meas Conc Maxm (MCMX)...16',
        'Conc Unit Cd (LCUC)',
        'Conc Unit Cd Desc (LCUCD)' )
   ) %>%
@@ -444,6 +441,7 @@ names(N_load_a)
 
 #combine dataframes
 N_load<-rbind(N_load_a,N_load_b)
+
 ```
 
 Loading in NPDES database with NPDES ID to match locations and other data.
@@ -472,7 +470,9 @@ N_load_out <- left_join(N_load, outfall_locations, by = 'permit_outfall')
 
 length(unique(as.character(N_load$permit_outfall)))
 length(unique(as.character(N_load_out$permit_outfall)))
+dim(N_load)
 dim(N_load_out)
+N_load_out_NA<-filter(N_load_out, is.na(kg_N_TN_per_month))
 
 
 ```
