@@ -87,9 +87,7 @@ ggplot(levels, aes(`Monitoring Location`,n))+
 dat$`Reported Value` <-
   ifelse(dat$`Reported Value` == "No Discharge Code - C" ,
          0,
-         dat$`Reported Value`)
-
-#reformating several columns
+         dat$`Reported Value`)#reformating several columns
 dim(dat)
 names(dat)
 
@@ -107,44 +105,23 @@ dat<-dat%>%
   mutate(permit_outfall = as.factor(paste0(permit, "_", Outfall)))
 
 
-permit_outfall_original<-levels(dat$permit_outfall) #1270 outfalls
-length(unique(as.character(dat$permit_outfall)))
-length(levels(as.factor(dat$key))) #149828
+length(unique(as.character(dat$permit_outfall))) #1270 permit/outfalls
+length(levels(as.factor(dat$key))) #159828 keys
 
 ```
 
 ```{r filter functions}
 #check dimensions and levels of permit outfalls
-# nrow(dat)-nrow(test)
-# length(unique(as.character(dat$permit_outfall)))-length(unique(as.character(test$permit_outfall)))
+ #nrow(dat)-nrow(test)
+#length(unique(as.character(dat$permit_outfall)))-length(unique(as.character(test$permit_outfall)))
 
 dat<-dat%>%
-    #removing unwanted discharge codes and monitoring locations
-  filter(!grepl("No Dishcharge Code",value))%>%
-  filter(`Monitoring Location`=="1") %>% #this drops 158423 rows and 99 permit/outfalls
+   filter(`Monitoring Location` %in% c("1", "2", "EA", "EG", "Y" )) %>% #this drops 153,813 rows and 95 permit/outfalls
   
   #removing infrequently used statistical base codes
-  filter(`Statistical Base Long Desc`=="Monthly Avg.") %>% #by this line, there are  474,995 rows dropped and 584 permit/outfalls dropped
-  
-  # omitting the few observations of these unclear units and/or Parameters
-  filter(!Units == "(55) - Pounds") %>% #by this line, there are  474,995 rows dropped and 584 permit/outfalls dropped
-  filter(!Units == "(25) - Milliliters per Liter") %>%
-  filter(!Parameter == "51450 - Nitrite Plus Nitrate Total") %>%
-
-  #omitting this parameter because we don't know what it means, but most
-  #observations report this AND 00056 flow rate,
-  #may want to include some of these observations later
-  filter(!Parameter=="50050 - Flow, in conduit or thru treatment plant") %>% #by this line, there are 517,810 rows dropped and 686 permit/outfalls dropped
-  filter(!Parameter=="50047 - Flow, maximum during 24 hr period") %>% #by this line, there are 518,327 rows dropped and 689 permit/outfalls dropped
-  filter(!Parameter=="00059 - Flow rate, instantaneous") %>%
-  filter(!Parameter=="51061 - Flow (dry weather)") %>% 
-  filter(!Parameter=="00625 - Nitrogen, Kjeldahl, total (as N)") %>%#by this line, there are 535,936 rows dropped  and 632 permit/outfalls dropped
-
-  
-  #I'm not sure which designator is correct, but we'll limit analysis to 1 for now 
-  #since it is most frequently reported
-  filter(Designator=="1")#by this line, there are 614,379 rows dropped and 942 permit/outfalls dropped
-
+  filter(`Statistical Base Long Desc` %in% c("Monthly Avg.", "Average Value","Daily Average", "30 Day Arithmetic Mean")) %>% #by this line, there are  466,114 rows dropped and 535 permit/outfalls dropped
+  filter(!Parameter=="50047 - Flow, maximum during 24 hr period") #by this line, there are 466,826 rows dropped and 538 permit/outfalls dropped
+  #filter(!Parameter=="00625 - Nitrogen, Kjeldahl, total (as N)") %>%#
 
 dat$Parameter <- droplevels(dat)$Parameter # dropping unused levels from dat$Parameter
 dat$Units <- droplevels(dat)$Units # dropping unused levels from dat$Parameter
@@ -230,16 +207,17 @@ dat$param_simple <- recode(dat$Parameter,
     "00610 - Nitrogen, ammonia total (as N)" = "NH3",
     "00615 - Nitrogen, nitrite total (as N)" = "NO2",
     "00620 - Nitrogen, nitrate total (as N)" = "NO3",
+    "00625 - Nitrogen, Kjeldahl, total (as N)"= "TKN",
     "51445 - Nitrogen, Total" = "TN",
     "00608 - Nitrogen, ammonia dissolved" = "NH3",
     "00630 - Nitrite + Nitrate total (as N)" = "IN",
     "00609 - Ammonia nitrogen, total, (as N) 30 day" = "NH3",
-    "49579 - Nitrogen, total Kjeldahl" = "TN",
+    "49579 - Nitrogen, total Kjeldahl" = "TKN",
     "51447 - Nitrogen, Nitrite  Total" = "NO2",
-    "51448 - Nitrogen, Nitrate  Total" = "TN",
-    "51449 - Nitrogen, Kjeldahl  Total" = "TN",
+    "51448 - Nitrogen, Nitrate  Total" = "NO3",
+    "51449 - Nitrogen, Kjeldahl  Total" = "TKN",
     "51446 - Nitrogen, Ammonia  Total" = "NH3",
-    "51087 - Nitrogen, Kjeldahl, total (TKN) (water)" = "TN",
+    "51087 - Nitrogen, Kjeldahl, total (TKN) (water)" = "TKN",
     "51489 - Nitrogen, Total as NO3 + NH3" = "IN",
     "34726 - Nitrogen, ammonia, total (as NH3)" = "NH3",
     "51085 - Nitrogen, ammonia (NH3-N)" = "NH3",
@@ -250,7 +228,8 @@ dat$param_simple <- recode(dat$Parameter,
     "74076 - Flow" = "flow_rate",
     "00058 - Flow rate" = "flow_rate",
     "82220 - Flow, total" = "flow_total",
-    
+    "50050 - Flow, in conduit or thru treatment plant" ="flow_rate",
+    "51061 - Flow (dry weather)" = "flow_total"
   )
 
 #analyzing distribution of parameters
@@ -286,7 +265,10 @@ In the future, we may want to add back in some of the other statistics.
 ```{r}
 
 dat$stat <- recode(dat$`Statistical Base Long Desc`,
-    "Monthly Avg." = "monthly_mean")
+    "Monthly Avg." = "mean",
+    "Average Value" = "mean",
+    "Daily Average" = "mean", 
+    "30 Day Arithmetic Mean" = "mean")
 
 dat$stat <- droplevels(dat)$stat # dropping unused levels from dat$stat
 
@@ -303,9 +285,9 @@ Tallying up duplicate values that complicate reshaping the data from long to wid
 n_row<-dat %>%
   group_by(key)%>%
   tally() %>%
-  arrange(n)
+  arrange(desc(n))
 
-hist(n_row$n) #most observations have 1-2 rows only, but a few have 3-7 rows
+hist(n_row$n) #most observations have 1-2 rows only, but a few have up to 14 rows
 
 ```
 First, we'll separate the keys for which kg N/month loads already exist from those which don't, check for duplicates, then pivot data from long to wide format.
@@ -335,7 +317,7 @@ N_load<- dat %>%
 
 
 #check if there are duplicates per key and one parameter
-N_load %>%
+dup<-N_load %>%
   group_by(key)%>%
   filter(param_simple=="TN") %>%
   tally() %>%
@@ -345,10 +327,13 @@ N_load %>%
 #pivoting the TN and NH3 observations into wide format and removing flow and concentration columns
 N_load_a<-N_load %>%
    pivot_wider(names_from = param_simple,
-              values_from = kg_per_month) %>%
+              values_from = kg_per_month,
+              values_fn = mean) %>%
   select(-million_L_per_month,- mg_N_per_L,-stat ) %>%
   rename(kg_N_TN_per_month=TN,
          kg_N_NH3_per_month=NH3)
+
+length(unique(as.character(N_load_a$permit_outfall))) #93 outfalls included here
 
 
 ```
@@ -377,21 +362,22 @@ dat %>%
 
 
 #many parameters have duplicates that we need to resolve before pivoting
-
-#separating different flow parameters to remove duplicates
+# here we separate different flow parameters to remove duplicates observations
 
 flow_56 <- dat %>%
   filter(is.na(kg_per_month)) %>%
   group_by(key) %>%
-  filter(any(Parameter == '00056 - Flow rate')) %>%
+  filter(any(Parameter == '00056 - Flow rate')) %>% #this filters a group of rows at the grouped (key) level, and selects first this most common parameter
   filter(Parameter == '00056 - Flow rate')
 
+#next, this filters the groups of rows at the grouped (key) level that do not include the 00056 parameter, and selects the second most common parameter 74076
 flow_76 <- dat %>%
   filter(is.na(kg_per_month)) %>%
   group_by(key) %>%
   filter(!any(Parameter == '00056 - Flow rate')) %>%
   filter(Parameter == '74076 - Flow')
 
+#next, this filters the groups of rows at the grouped (key) level that do not include the 00056 or 74076 parameter, and selects the least common parameter 00058
 flow_58 <- dat %>%
   filter(is.na(kg_per_month)) %>%
   group_by(key) %>%
@@ -399,6 +385,7 @@ flow_58 <- dat %>%
   filter(!any(Parameter == '74076 - Flow')) %>%
   filter(Parameter == '00058 - Flow rate')
 
+#finally, we collect all nitrogen related parameters to bind to the flow observations
 N_params<- dat %>%
   filter(is.na(kg_per_month)) %>%
   filter(!Parameter == '00056 - Flow rate') %>%
@@ -406,15 +393,26 @@ N_params<- dat %>%
   filter(!Parameter == '00058 - Flow rate') %>%
   distinct() 
 
+#bind all observations back together
 flow_cleaned<-rbind(flow_56,flow_76,flow_58,N_params) 
 
 #review duplicates
-flow_cleaned %>%
+dups2<-flow_cleaned %>%
   filter(is.na(kg_per_month)) %>%
   group_by(key, param_simple)%>%
   tally() %>%
   arrange(desc(n))
 
+sample_dups<-flow_cleaned %>%
+  filter(key %in% c(
+    'CT0003263_001B_2011-06-30',
+'CT0000086_001_2012-06-30',
+'CT0000582_001_2003-08-31',
+'CT0003875_001_2008-01-31',
+'NY0007340_001_1998-02-28'
+  ))
+
+write.csv(sample_dups, 'sample_dups.csv',row.names = F)
 #now there are no duplicated rows
 
 
@@ -440,8 +438,39 @@ flow_N_concentration <- flow_cleaned %>%
       `Limit Sample Type`)
   ) %>%
    pivot_wider(names_from = param_simple,
-              values_from = c(mg_N_per_L, million_L_per_month)) %>%
+              values_from = c(mg_N_per_L, million_L_per_month),
+              values_fn = mean) %>%
   select_if(not_all_na) 
+
+###########investigating missingness in data that drops so many outfalls after this step
+#calculating N loads
+N_load_b_wide <- flow_N_concentration %>%
+  mutate(kg_N_TN_per_month = mg_N_per_L_TN * million_L_per_month_flow_rate) %>%
+  mutate(kg_N_ON_per_month = mg_N_per_L_ON * million_L_per_month_flow_rate) %>%
+  mutate(kg_N_NH3_per_month = mg_N_per_L_NH3 * million_L_per_month_flow_rate) %>%
+  mutate(kg_N_NO2_per_month = mg_N_per_L_NO2 * million_L_per_month_flow_rate) %>%
+  mutate(kg_N_NO3_per_month = mg_N_per_L_NO3 * million_L_per_month_flow_rate) 
+
+#combine N columns in N_load_b to standardize and join dataframes
+names(N_load_b_wide)
+length(unique(as.character(N_load_b_wide$permit_outfall))) #328 outfalls included here
+
+# #trying to understand source of missingness
+# N_load_b_wide  %>%
+#   summarise_all(list(~is.na(.)))%>%
+#   select(-'key') %>%
+#   pivot_longer(everything(),
+#                names_to = "variables", values_to="missing") %>%
+#   count(variables, missing) %>%
+#   ggplot(aes(y=variables,x=n,fill=missing))+
+#   geom_col(position = "fill")+
+#   labs(x="Proportion")+
+#   scale_fill_manual(values=c("lightgreen","lightred"))+
+#   theme(axis.title.y=element_blank())
+
+
+
+############
 
 #calculating N loads
 N_load_b <- flow_N_concentration %>%
@@ -459,10 +488,6 @@ N_load_b <- flow_N_concentration %>%
     -million_L_per_month_flow_rate,
     -stat
   )
-
-#combine N columns in N_load_b to standardize and join dataframes
-names(N_load_b)
-
 
 N_load_b$kg_N_inorganic_per_month <- N_load_b$kg_N_NH3_per_month +
   N_load_b$kg_N_NO3_per_month +
@@ -495,6 +520,12 @@ N_load_b<- N_load_b %>%
   select(-kg_N_sum_per_month)
 
 names(N_load_b)
+length(unique(as.character(N_load_b$permit_outfall))) #328 outfalls included here
+length(is.na(N_load_b$kg_N_TN_per_month)) #but there are 42,951 NA values
+#how many outfalls without NAs for TN?
+N_load_b_noNA<-N_load_b %>% filter(!is.na(kg_N_TN_per_month))
+length(unique(as.character(N_load_b_noNA$permit_outfall))) #18 outfalls included here
+
 
 #for N_load_a
 #combine the different N columns; use total N when reported, or the sum of all other
@@ -519,9 +550,9 @@ N_load<-rbind(N_load_a,N_load_b)
 length(unique(as.character(N_load$permit_outfall))) #328 outfalls with/without locations
 nrow(N_load) #still 43,376--did not remove additional keys
 
-write.csv(N_load,
-          file = here("data", "ECHO_data_clean_all.csv"),
-          row.names = F)
+# write.csv(N_load,
+#           file = here("data", "ECHO_data_clean_all.csv"),
+#           row.names = F)
 
 
 ```
@@ -596,8 +627,101 @@ length(unique(as.character(dat_join$permit_outfall))) #328 outfalls with locatio
 
 
 write.csv(dat_join,
-          file = here("data", "ECHO_data_clean_with_locations.csv"),
+          file = here("data", "ECHO_data_clean.csv"),
           row.names = F)
 
 
 ```
+
+Exploring missingingness more
+
+```{r}
+col_specifications<-('ccffffffffffddff') #compact string to specify column types
+dat2<-read_csv(file=here("data","Echo_LIS_complete_data.csv"),
+               col_types = col_specifications)
+dat2<-distinct(dat2) #remove a few duplicate rows
+names(dat2)
+
+##looking at missing values within parameters
+param_NAs <-
+  dat2 %>%
+  select(c(param = 'Parameter', value = 'Reported Value')) %>%
+  group_by(param) %>%
+  summarize(missing = sum(is.na(value)),
+            n = n()) %>%
+  mutate(prop_missing = missing / n,
+         prop_complete = (n - missing) / n)
+
+ggplot(param_NAs, aes(y = param, x = prop_complete)) +
+  geom_col() +
+  xlab("proportion complete observations")
+
+dat3 <- dat2 %>%
+  distinct() %>% #remove a few duplicate rows
+  mutate(date = mdy(`Monitoring Period`)) %>%
+  mutate(key = paste0(`Permit ID`, "_", Outfall, "_", date)) %>%
+  #filter(!grepl("No Dishcharge Code",value))%>%
+  filter(`Monitoring Location` == "1") %>% #this drops 158,423 rows and 99 permit/outfalls
+  #removing infrequently used statistical base codes
+  filter(`Statistical Base Long Desc` %in% c("Monthly Avg.","Average Value","Daily Avg.")) %>% #by this line, there are  474,995 rows dropped and 584 permit/outfalls dropped
+  # omitting the few observations of these unclear units and/or Parameters
+  filter(!Units == "(55) - Pounds") %>% #by this line, there are  474,995 rows dropped and 584 permit/outfalls dropped
+  filter(!Units == "(25) - Milliliters per Liter") %>%
+  filter(!Parameter == "51450 - Nitrite Plus Nitrate Total") %>%
+  #omitting this parameter because we don't know what it means, but most
+  #observations report this AND 00056 flow rate,
+  #may want to include some of these observations later
+  filter(!Parameter == "50050 - Flow, in conduit or thru treatment plant") %>% #by this line, there are 517,810 rows dropped and 686 permit/outfalls dropped
+  filter(!Parameter == "50047 - Flow, maximum during 24 hr period") %>% #by this line, there are 518,327 rows dropped and 689 permit/outfalls dropped
+  filter(!Parameter == "00059 - Flow rate, instantaneous") %>%
+  filter(!Parameter == "51061 - Flow (dry weather)") %>%
+  filter(!Parameter == "00625 - Nitrogen, Kjeldahl, total (as N)") %>%
+  #by this line, there are 535,936 rows dropped  and 632 permit/outfalls dropped
+  #I'm not sure which designator is correct, but we'll limit analysis to 1 for now
+  #since it is most frequently reported
+  filter(Designator == "1")#by this line, there are 614,379 rows dropped and 942 permit/outfalls dropped
+
+unique(dat2$Parameter)
+unique(dat3$Parameter)
+
+
+missing_flow <- dat3 %>%
+  group_by(key) %>%
+  filter(!any(
+    Parameter %in% c('00056 - Flow rate', '74076 - Flow', '00058 - Flow rate')
+  ))
+#~15k/70k observations are missing flow rate
+write.csv(missing_flow, 'missing_flow.csv', row.names = F)
+
+missing_N <- dat3 %>%
+  group_by(key) %>%
+  filter(!any(
+    Parameter %in% c(
+      "00600 - Nitrogen, total (as N)",
+      "00605 - Nitrogen, organic total (as N)",
+      "00610 - Nitrogen, ammonia total (as N)",
+      "00615 - Nitrogen, nitrite total (as N)",
+      "00620 - Nitrogen, nitrate total (as N)",
+      "51445 - Nitrogen, Total",
+      "00608 - Nitrogen, ammonia dissolved",
+      "00630 - Nitrite + Nitrate total (as N)",
+      "00609 - Ammonia nitrogen, total, (as N) 30 day",
+      "49579 - Nitrogen, total Kjeldahl",
+      "51447 - Nitrogen, Nitrite  Total",
+      "51448 - Nitrogen, Nitrate  Total" ,
+      "51449 - Nitrogen, Kjeldahl  Total" ,
+      "51446 - Nitrogen, Ammonia  Total",
+      "51087 - Nitrogen, Kjeldahl, total (TKN) (water)",
+      "51489 - Nitrogen, Total as NO3 + NH3" ,
+      "34726 - Nitrogen, ammonia, total (as NH3)",
+      "51085 - Nitrogen, ammonia (NH3-N)",
+      "51425 - Nitrogen, Total As N",
+      "51450 - Nitrite Plus Nitrate Total"
+    )
+  ))
+
+#~36k/70k observations are missing N
+write.csv(missing_N, 'missing_N.csv', row.names = F)
+
+```
+
