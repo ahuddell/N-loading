@@ -633,95 +633,131 @@ write.csv(dat_join,
 
 ```
 
-Exploring missingingness more
+Below are some explorations of missingness in the data. 
 
 ```{r}
-col_specifications<-('ccffffffffffddff') #compact string to specify column types
-dat2<-read_csv(file=here("data","Echo_LIS_complete_data.csv"),
-               col_types = col_specifications)
-dat2<-distinct(dat2) #remove a few duplicate rows
-names(dat2)
-
-##looking at missing values within parameters
-param_NAs <-
-  dat2 %>%
-  select(c(param = 'Parameter', value = 'Reported Value')) %>%
-  group_by(param) %>%
-  summarize(missing = sum(is.na(value)),
-            n = n()) %>%
-  mutate(prop_missing = missing / n,
-         prop_complete = (n - missing) / n)
-
-ggplot(param_NAs, aes(y = param, x = prop_complete)) +
-  geom_col() +
-  xlab("proportion complete observations")
-
-dat3 <- dat2 %>%
-  distinct() %>% #remove a few duplicate rows
-  mutate(date = mdy(`Monitoring Period`)) %>%
-  mutate(key = paste0(`Permit ID`, "_", Outfall, "_", date)) %>%
-  #filter(!grepl("No Dishcharge Code",value))%>%
-  filter(`Monitoring Location` == "1") %>% #this drops 158,423 rows and 99 permit/outfalls
-  #removing infrequently used statistical base codes
-  filter(`Statistical Base Long Desc` %in% c("Monthly Avg.","Average Value","Daily Avg.")) %>% #by this line, there are  474,995 rows dropped and 584 permit/outfalls dropped
-  # omitting the few observations of these unclear units and/or Parameters
-  filter(!Units == "(55) - Pounds") %>% #by this line, there are  474,995 rows dropped and 584 permit/outfalls dropped
-  filter(!Units == "(25) - Milliliters per Liter") %>%
-  filter(!Parameter == "51450 - Nitrite Plus Nitrate Total") %>%
-  #omitting this parameter because we don't know what it means, but most
-  #observations report this AND 00056 flow rate,
-  #may want to include some of these observations later
-  filter(!Parameter == "50050 - Flow, in conduit or thru treatment plant") %>% #by this line, there are 517,810 rows dropped and 686 permit/outfalls dropped
-  filter(!Parameter == "50047 - Flow, maximum during 24 hr period") %>% #by this line, there are 518,327 rows dropped and 689 permit/outfalls dropped
-  filter(!Parameter == "00059 - Flow rate, instantaneous") %>%
-  filter(!Parameter == "51061 - Flow (dry weather)") %>%
-  filter(!Parameter == "00625 - Nitrogen, Kjeldahl, total (as N)") %>%
-  #by this line, there are 535,936 rows dropped  and 632 permit/outfalls dropped
-  #I'm not sure which designator is correct, but we'll limit analysis to 1 for now
-  #since it is most frequently reported
-  filter(Designator == "1")#by this line, there are 614,379 rows dropped and 942 permit/outfalls dropped
-
-unique(dat2$Parameter)
-unique(dat3$Parameter)
-
-
-missing_flow <- dat3 %>%
-  group_by(key) %>%
-  filter(!any(
-    Parameter %in% c('00056 - Flow rate', '74076 - Flow', '00058 - Flow rate')
-  ))
-#~15k/70k observations are missing flow rate
-write.csv(missing_flow, 'missing_flow.csv', row.names = F)
-
-missing_N <- dat3 %>%
-  group_by(key) %>%
-  filter(!any(
-    Parameter %in% c(
-      "00600 - Nitrogen, total (as N)",
-      "00605 - Nitrogen, organic total (as N)",
-      "00610 - Nitrogen, ammonia total (as N)",
-      "00615 - Nitrogen, nitrite total (as N)",
-      "00620 - Nitrogen, nitrate total (as N)",
-      "51445 - Nitrogen, Total",
-      "00608 - Nitrogen, ammonia dissolved",
-      "00630 - Nitrite + Nitrate total (as N)",
-      "00609 - Ammonia nitrogen, total, (as N) 30 day",
-      "49579 - Nitrogen, total Kjeldahl",
-      "51447 - Nitrogen, Nitrite  Total",
-      "51448 - Nitrogen, Nitrate  Total" ,
-      "51449 - Nitrogen, Kjeldahl  Total" ,
-      "51446 - Nitrogen, Ammonia  Total",
-      "51087 - Nitrogen, Kjeldahl, total (TKN) (water)",
-      "51489 - Nitrogen, Total as NO3 + NH3" ,
-      "34726 - Nitrogen, ammonia, total (as NH3)",
-      "51085 - Nitrogen, ammonia (NH3-N)",
-      "51425 - Nitrogen, Total As N",
-      "51450 - Nitrite Plus Nitrate Total"
-    )
-  ))
-
-#~36k/70k observations are missing N
-write.csv(missing_N, 'missing_N.csv', row.names = F)
-
-```
+# col_specifications<-('ccffffffffffddff') #compact string to specify column types
+# dat2<-read_csv(file=here("data","Echo_LIS_complete_data.csv"),
+#                col_types = col_specifications)
+# 
+# 
+# dat3 <- dat2 %>%
+#   distinct() %>% #remove a few duplicate rows
+#   mutate(date = mdy(`Monitoring Period`)) %>%
+#   mutate(key = paste0(`Permit ID`, "_", Outfall, "_", date)) %>%
+#   filter(`Monitoring Location` %in% c("1", "2", "EA", "EG", "Y" ))  %>%
+#   filter(`Statistical Base Long Desc` %in% c("Monthly Avg.", "Average Value","Daily Average", "30 Day Arithmetic Mean")) %>% 
+#   filter(!Parameter=="50047 - Flow, maximum during 24 hr period")
+# 
+# unique(dat3$Parameter)
+# 
+# missing_N <- dat3 %>%
+#   group_by(key) %>%
+#   filter(all(
+#     Parameter %in% c(
+#       '00056 - Flow rate',
+#       '74076 - Flow',
+#       '00058 - Flow rate',
+#       '82220 - Flow, total' ,
+#       '50050 - Flow, in conduit or thru treatment plant' ,
+#       '51061 - Flow (dry weather)'
+#     )
+#   ))
+# 
+# #~85k/218k observations are missing flow rate
+# write.csv(missing_N, 'missing_N.csv', row.names = F)
+# 
+# missing_flow <- dat3 %>%
+#   group_by(key) %>%
+#   filter(all(Parameter %in% c(
+#       "00600 - Nitrogen, total (as N)",
+#       "00605 - Nitrogen, organic total (as N)",
+#       "00610 - Nitrogen, ammonia total (as N)",
+#       "00615 - Nitrogen, nitrite total (as N)",
+#       "00620 - Nitrogen, nitrate total (as N)",
+#       "51445 - Nitrogen, Total",
+#       "00608 - Nitrogen, ammonia dissolved",
+#       "00630 - Nitrite + Nitrate total (as N)",
+#       "00609 - Ammonia nitrogen, total, (as N) 30 day",
+#       "49579 - Nitrogen, total Kjeldahl",
+#       "51447 - Nitrogen, Nitrite  Total",
+#       "51448 - Nitrogen, Nitrate  Total" ,
+#       "51449 - Nitrogen, Kjeldahl  Total" ,
+#       "51446 - Nitrogen, Ammonia  Total",
+#       "51087 - Nitrogen, Kjeldahl, total (TKN) (water)",
+#       "51489 - Nitrogen, Total as NO3 + NH3" ,
+#       "34726 - Nitrogen, ammonia, total (as NH3)",
+#       "51085 - Nitrogen, ammonia (NH3-N)",
+#       "51425 - Nitrogen, Total As N",
+#       "51450 - Nitrite Plus Nitrate Total"
+#     )
+#   ))
+# 
+# #~3k/70k observations are missing flow
+# write.csv(missing_flow, 'missing_flow.csv', row.names = F)
+# 
+# 
+# #how many N observations are only reported in Daily Max?
+# dat4 <- dat2 %>%
+#   distinct() %>% #remove a few duplicate rows
+#   mutate(date = mdy(`Monitoring Period`)) %>%
+#   mutate(key = paste0(`Permit ID`, "_", Outfall, "_", date)) %>%
+#  filter(`Monitoring Location` %in% c("1", "2", "EA", "EG", "Y" )) %>% #this drops 153,813 rows and 95 permit/outfalls
+#     filter(!any(`Statistical Base Long Desc` %in% c("Monthly Avg.", "Average Value","Daily Average", "30 Day Arithmetic Mean")))  
+# filter( Parameter %in% c(
+#       "00600 - Nitrogen, total (as N)",
+#       "00605 - Nitrogen, organic total (as N)",
+#       "00610 - Nitrogen, ammonia total (as N)",
+#       "00615 - Nitrogen, nitrite total (as N)",
+#       "00620 - Nitrogen, nitrate total (as N)",
+#       "51445 - Nitrogen, Total",
+#       "00608 - Nitrogen, ammonia dissolved",
+#       "00630 - Nitrite + Nitrate total (as N)",
+#       "00609 - Ammonia nitrogen, total, (as N) 30 day",
+#       "49579 - Nitrogen, total Kjeldahl",
+#       "51447 - Nitrogen, Nitrite  Total",
+#       "51448 - Nitrogen, Nitrate  Total" ,
+#       "51449 - Nitrogen, Kjeldahl  Total" ,
+#       "51446 - Nitrogen, Ammonia  Total",
+#       "51087 - Nitrogen, Kjeldahl, total (TKN) (water)",
+#       "51489 - Nitrogen, Total as NO3 + NH3" ,
+#       "34726 - Nitrogen, ammonia, total (as NH3)",
+#       "51085 - Nitrogen, ammonia (NH3-N)",
+#       "51425 - Nitrogen, Total As N",
+#       "51450 - Nitrite Plus Nitrate Total"))%>%
+# 
+#  
+# 
+# #show examples of  duplicate flows per key
+# dup_flow3_keys <- dat2 %>%
+#    filter(!`Statistical Base Long Desc` == 'Daily Max.') %>%
+#   distinct() %>% #remove a few duplicate rows
+#   mutate(date = mdy(`Monitoring Period`)) %>%
+#   mutate(key = paste0(`Permit ID`, "_", Outfall, "_", date)) %>%
+#   filter(`Monitoring Location` %in% c("1", "2", "EA", "EG", "Y" )) %>% #this drops 153,813 rows and 95 permit/outfalls
+#  filter(Parameter %in% c('00056 - Flow rate', '74076 - Flow', '00058 - Flow rate','82220 - Flow, total' ,
+#     '50050 - Flow, in conduit or thru treatment plant' ,
+#     '51061 - Flow (dry weather)' )) %>%
+#    group_by(key, Parameter) %>%
+#     tally() %>%
+#     arrange(desc(n)) %>%
+#     filter(n>1)
+# 
+# dup_keys<-dup_flow3_keys$key
+# 
+# dup_flow3<- dat2 %>%
+#    distinct() %>% #remove a few duplicate rows
+#   mutate(date = mdy(`Monitoring Period`)) %>%
+#   mutate(key = paste0(`Permit ID`, "_", Outfall, "_", date)) %>%
+#   filter(key %in% dup_keys)    %>%
+#    filter(!`Statistical Base Long Desc` == 'Daily Max.') %>%
+#   
+#   filter(`Monitoring Location` %in% c("1", "2", "EA", "EG", "Y" )) %>% #this drops 153,813 rows and 95 permit/outfalls
+#  filter(Parameter %in% c('00056 - Flow rate', '74076 - Flow', '00058 - Flow rate','82220 - Flow, total' ,
+#     '50050 - Flow, in conduit or thru treatment plant' ,
+#     '51061 - Flow (dry weather)' ))
+# 
+#  hist(dup_flow3$n)
+# write.csv(dup_flow3, 'flow_duplicates.csv', row.names = F)
+# ```
 
