@@ -4,7 +4,7 @@ library(here)
 
 #load both datasets
 PCS_all<-read_csv(file=here("data","PCS_data_clean.csv"))
-ECHO_all<-read_csv(file = here("data", "ECHO_data_clean_all.csv"))
+ECHO_all<-read_csv(file = here("data", "ECHO_data_clean.csv"))
 
 #organizing keys
 PCS_key<-list(unique(PCS_all$key))
@@ -48,13 +48,15 @@ write_csv(x=difference,
 
 #plot observations by permit/outfall
 ECHO_all %>% 
-  #filter(!is.na(kg_N_TN_per_month)) %>%
-  ggplot(aes(x=permit_outfall, y=kg_N_TN_per_month)) +
-  geom_boxplot()+
+  filter(!is.na(kg_N_TN_per_month)) %>%
+  ggplot(aes(x=date, y=kg_N_TN_per_month)) +
+  #geom_boxplot()+
   geom_point() +
+  ylim(0,50000)+
   ggtitle('ECHO data')+
   ylab('Monthly TN load (kg N)')+
-  theme(axis.text.x = element_text(angle = 60, hjust=1))
+  theme(axis.text.x = element_text(angle = 60, hjust=1))+
+  facet_wrap(~permit)
 
 #plot observations by permit/outfall
 PCS_all %>% 
