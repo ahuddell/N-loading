@@ -4,7 +4,7 @@ library(here)
 
 #load both datasets
 PCS_all<-read_csv(file=here("data","PCS_data_clean.csv"))
-ECHO_all<-read_csv(file = here("data", "ECHO_data_clean.csv"))
+ECHO_all<-read_csv(file = here("data", "ECHO_data_clean_all.csv"))
 
 #organizing keys
 PCS_key<-list(unique(PCS_all$key))
@@ -49,14 +49,26 @@ write_csv(x=difference,
 #plot observations by permit/outfall
 ECHO_all %>% 
   filter(!is.na(kg_N_TN_per_month)) %>%
-  ggplot(aes(x=date, y=kg_N_TN_per_month)) +
-  #geom_boxplot()+
+  ggplot(aes(x=permit_outfall, y=kg_N_TN_per_month)) +
+  geom_boxplot()+
   geom_point() +
   ylim(0,50000)+
   ggtitle('ECHO data')+
   ylab('Monthly TN load (kg N)')+
+  theme(axis.text.x = element_text(angle = 60, hjust=1))
+#plot through time with permit facet
+ECHO_all %>% 
+  filter(!is.na(kg_N_TN_per_month)) %>%
+  ggplot(aes(x=date, y=kg_N_TN_per_month)) +
+  #geom_boxplot()+
+  geom_point() +
+ # ylim(0,50000)+
+  ggtitle('ECHO data')+
+  ylab('Monthly TN load (kg N)')+
   theme(axis.text.x = element_text(angle = 60, hjust=1))+
   facet_wrap(~permit)
+
+unique(ECHO_all$permit_outfall)
 
 #plot observations by permit/outfall
 PCS_all %>% 
@@ -76,6 +88,7 @@ ECHO_all %>%
   geom_point() +
   geom_violin()+
   geom_smooth(method = "loess")+
+  ylim(c(0,100000))+
   ggtitle('ECHO data')+
   ylab('Monthly TN load (kg N)')+
   theme(axis.text.x = element_text(angle = 60, hjust=1))
@@ -89,13 +102,17 @@ ECHO_all %>%
   geom_smooth(method = "loess")+
   ggtitle('ECHO data')+
   ylab('Monthly TN load (kg N)')+
+  ylim(c(0,100000))+
   theme(axis.text.x = element_text(angle = 60, hjust=1))+
   ylim(0,30)
 
 hist(ECHO_all$kg_N_TN_per_month)
 
 ECHO_nonzero<-filter(ECHO_all,kg_N_TN_per_month>0)
-summary(lm(log(ECHO_nonzero$kg_N_TN_per_month)~month(ECHO_nonzero$date)))
+summary(lm(log(ECHO_nonzero$kg_N_TN_per_month)~as.factor(month(ECHO_nonzero$date))))
+
+lm1<-aov(lm(log(ECHO_nonzero$kg_N_TN_per_month)~as.factor(month(ECHO_nonzero$date))))
+TukeyHSD(lm1)
 
 lm1<-aov(lm(log(ECHO_nonzero$kg_N_TN_per_month)~as.factor(year(ECHO_nonzero$date))))
 TukeyHSD(lm1)
