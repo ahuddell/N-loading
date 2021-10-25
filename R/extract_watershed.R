@@ -134,28 +134,28 @@ huc8_combined<-st_transform(huc8_combined, crs=4326)
 # read in our data convert to sf object -----------------------------------
 
 #read data
-dat<-read_csv( file = here('data', 'ECHO_data_clean_with_locations.csv'))
+dat<-read_csv( file = here('data', 'ECHO_data_clean.csv'))
 
 
-# #calculating monthly TN totals by watershed
-# dat_summary<- dat %>%
-#   group_by(huc8,date) %>%
-#   summarise(kgN_huc8=sum(kg_N_TN_per_month,na.rm=T))
-
-# #join huc spatial data to monthly totals
-# N_load_huc_join<-left_join(dat_summary,huc8_combined)
-# N_load_huc_join<-st_as_sf(N_load_huc_join)
-# names(N_load_huc_join)
-
-#we only need annual data for the spatial join, so modifying the workflow here
-dat_annual_summary<- dat %>%
-  group_by(huc8, year=year(date)) %>%
-  summarise(kgN_huc8_yr=sum(kg_N_TN_per_month,na.rm=T)) 
+#calculating monthly TN totals by watershed
+dat_summary<- dat %>%
+  group_by(huc8,date) %>%
+  summarise(kgN_huc8=sum(kg_N_TN_per_month,na.rm=T))
 
 #join huc spatial data to monthly totals
-N_load_huc_join<-left_join(dat_annual_summary,huc8_combined)
+N_load_huc_join<-left_join(dat_summary,huc8_combined)
 N_load_huc_join<-st_as_sf(N_load_huc_join)
 names(N_load_huc_join)
+
+# #we only need annual data for the spatial join, so modifying the workflow here
+# dat_annual_summary<- dat %>%
+#   group_by(huc8, year=year(date)) %>%
+#   summarise(kgN_h8=sum(kg_N_TN_per_month,na.rm=T)) 
+# 
+# #join huc spatial data to monthly totals
+# N_load_huc_join<-left_join(dat_annual_summary,huc8_combined)
+# N_load_huc_join<-st_as_sf(N_load_huc_join)
+# names(N_load_huc_join)
 
 #writing out huc_join for spatial app
 dir.create(here('data', 'huc_8_dat_join'))
