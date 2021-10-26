@@ -102,7 +102,8 @@ dat<-dat%>%
   mutate(date=mdy(date)) %>%
   mutate(key = paste0(permit, "_", Outfall, "_", date)) %>%
   mutate(days_per_month = days_in_month(date))  %>%
-  mutate(permit_outfall = as.factor(paste0(permit, "_", Outfall)))
+  mutate(permit_outfall = as.factor(paste0(permit, "_", Outfall))) %>%
+  mutate(permit_outfall_designator=as.factor(paste0(permit,"_",Outfall,"_",Designator)))
 
 
 length(unique(as.character(dat$permit_outfall))) #1270 permit/outfalls
@@ -112,21 +113,26 @@ length(levels(as.factor(dat$key))) #159828 keys
 
 ```{r filter functions}
 #check dimensions and levels of permit outfalls
- #nrow(dat)-nrow(test)
-#length(unique(as.character(dat$permit_outfall)))-length(unique(as.character(test$permit_outfall)))
-
 dat<-dat%>%
+  #filtering to only gross effluent monitoring locations
    filter(`Monitoring Location` %in% c("1", "2", "EA", "EG", "Y" )) %>% #this drops 153,813 rows and 95 permit/outfalls
-  
   #removing infrequently used statistical base codes
   filter(`Statistical Base Long Desc` %in% c("Monthly Avg.", "Average Value","Daily Average", "30 Day Arithmetic Mean")) %>% #by this line, there are  466,114 rows dropped and 535 permit/outfalls dropped
   filter(!Parameter=="50047 - Flow, maximum during 24 hr period") #by this line, there are 466,826 rows dropped and 538 permit/outfalls dropped
-  #filter(!Parameter=="00625 - Nitrogen, Kjeldahl, total (as N)") %>%#
+  #filter(!Parameter=="00625 - Nitrogen, Kjeldahl, total (as N)") %>%
 
-dat$Parameter <- droplevels(dat)$Parameter # dropping unused levels from dat$Parameter
-dat$Units <- droplevels(dat)$Units # dropping unused levels from dat$Parameter
-dat$`Statistical Base Long Desc` <- droplevels(dat)$`Statistical Base Long Desc` # dropping unused levels from dat$`Statistical Base Long Desc`
-dat$Designator <- droplevels(dat)$Designator # dropping unused levels from dat$Designator
+# #remove problematic data by hand
+# dat<-dat %>% filter(!permit_outfall_designator %in% c('CT0003824_001_A',
+#                                                       'CT0003824_001_B',
+#                                                       'CT0003824_001_C',
+#                                                       'CT0003824_001_E')) 
+# #remove designators other than D for this permit
+#  
+
+dat$Parameter <- droplevels(dat)$Parameter # dropping unused levels 
+dat$Units <- droplevels(dat)$Units # dropping unused levels 
+dat$`Statistical Base Long Desc` <- droplevels(dat)$`Statistical Base Long Desc` #dropping unused levels 
+dat$Designator <- droplevels(dat)$Designator # dropping unused levels 
 
 ```
 
@@ -140,7 +146,7 @@ dat <- dat %>% mutate(
     case_when(
       Units == "(26) - Pounds per Day" ~ value / 2.205 * days_per_month,
       Units == "(01) - Kilograms per Day" ~ value * days_per_month, # converts per day to per month
-      Units == "(35) - Grams per Day" ~ value * 1000 * days_per_month, # converts g to kg and per day to per month
+      Units == "(35) - Grams per Day" ~ value / 1000 * days_per_month, # converts g to kg and per day to per month
       Units == "(2R) - Pounds per Hour" ~ value / 2.205 * 24 * days_per_month, # converts pounds to kg and hours to months
       Units == "(9T) - Million Pounds per Day" ~ value * 10^6 / 2.205 * days_per_month, # converts millions of pounds to kg per month
     )
@@ -181,6 +187,8 @@ dat$value <- ifelse(
   dat$value * 14.0067 / 17.031,
   dat$value
 )
+
+
 
 #standardize concentrations to milligrams N per liter  
 dat <- dat %>% mutate(
@@ -259,7 +267,7 @@ ggplot(levels, aes(Parameter,n))+
 ```
 
 #Standardizing statistics codes
-For now,I excluded ALL but two stats because tackling them all together was overwhelming.
+For now,I excluded ALL but four statistical base codes because the others relate to maxima or other irrelevant data.
 In the future, we may want to add back in some of the other statistics.
 
 ```{r}
@@ -322,7 +330,8 @@ dup<-N_load %>%
   filter(param_simple=="TN") %>%
   tally() %>%
   arrange(desc(n))
-#now there are no duplicates
+#there are a few duplicates that seem like legitimate duplicates 
+#(i.e. monitoring 1 vs. Y), so we can take the mean between them
 
 #pivoting the TN and NH3 observations into wide format and removing flow and concentration columns
 N_load_a<-N_load %>%
@@ -347,19 +356,51 @@ not_all_na <- function(x) any(!is.na(x))
 
 
 #review duplicates
-dat %>%
-  filter(is.na(kg_per_month)) %>%
+keys_with_N<-dat %>%
+  group_by(key) %>%
+  filter(!any(!is.na(kg_per_month))) %>%
+  filter(any(Parameter %in% c(
+      "00600 - Nitrogen, total (as N)",
+      "00605 - Nitrogen, organic total (as N)",
+      "00610 - Nitrogen, ammonia total (as N)",
+      "00615 - Nitrogen, nitrite total (as N)",
+      "00620 - Nitrogen, nitrate total (as N)",
+      "51445 - Nitrogen, Total",
+      "00608 - Nitrogen, ammonia dissolved",
+      "00630 - Nitrite + Nitrate total (as N)",
+      "00609 - Ammonia nitrogen, total, (as N) 30 day",
+      "49579 - Nitrogen, total Kjeldahl",
+      "51447 - Nitrogen, Nitrite  Total",
+      "51448 - Nitrogen, Nitrate  Total" ,
+      "51449 - Nitrogen, Kjeldahl  Total" ,
+      "51446 - Nitrogen, Ammonia  Total",
+      "51087 - Nitrogen, Kjeldahl, total (TKN) (water)",
+      "51489 - Nitrogen, Total as NO3 + NH3" ,
+      "34726 - Nitrogen, ammonia, total (as NH3)",
+      "51085 - Nitrogen, ammonia (NH3-N)",
+      "51425 - Nitrogen, Total As N",
+      "51450 - Nitrite Plus Nitrate Total"
+    ))
+  ) 
+  
+dup<-keys_with_N %>% 
+  filter(param_simple == 'flow_rate') %>%
   group_by(key, param_simple)%>%
+  drop_na('value')%>%
   tally() %>%
+  filter(n>1)%>%
   arrange(desc(n))
 
-dat %>%
+
+dup<-dat %>%
   filter(is.na(kg_per_month)) %>%
   filter(!param_simple == 'flow_rate') %>%
   group_by(key, param_simple)%>%
+  drop_na('value')%>%
   tally() %>%
+  filter(n>1)%>%
   arrange(desc(n))
-
+#I reviewed all of the outfalls with non-flow rate duplicates and feel comfortable averaging across them since they are close in value and seem like true duplicates
 
 #many parameters have duplicates that we need to resolve before pivoting
 # here we separate different flow parameters to remove duplicates observations
@@ -403,18 +444,6 @@ dups2<-flow_cleaned %>%
   tally() %>%
   arrange(desc(n))
 
-sample_dups<-flow_cleaned %>%
-  filter(key %in% c(
-    'CT0003263_001B_2011-06-30',
-'CT0000086_001_2012-06-30',
-'CT0000582_001_2003-08-31',
-'CT0003875_001_2008-01-31',
-'NY0007340_001_1998-02-28'
-  ))
-
-write.csv(sample_dups, 'sample_dups.csv',row.names = F)
-#now there are no duplicated rows
-
 
 #subset of data that DO NOT report loads, then
 #pivot wider and then remove columns with only NAs (since some parameter/unit combinations that don't make sense)
@@ -443,30 +472,30 @@ flow_N_concentration <- flow_cleaned %>%
   select_if(not_all_na) 
 
 ###########investigating missingness in data that drops so many outfalls after this step
-#calculating N loads
-N_load_b_wide <- flow_N_concentration %>%
-  mutate(kg_N_TN_per_month = mg_N_per_L_TN * million_L_per_month_flow_rate) %>%
-  mutate(kg_N_ON_per_month = mg_N_per_L_ON * million_L_per_month_flow_rate) %>%
-  mutate(kg_N_NH3_per_month = mg_N_per_L_NH3 * million_L_per_month_flow_rate) %>%
-  mutate(kg_N_NO2_per_month = mg_N_per_L_NO2 * million_L_per_month_flow_rate) %>%
-  mutate(kg_N_NO3_per_month = mg_N_per_L_NO3 * million_L_per_month_flow_rate) 
-
-#combine N columns in N_load_b to standardize and join dataframes
-names(N_load_b_wide)
-length(unique(as.character(N_load_b_wide$permit_outfall))) #328 outfalls included here
-
-# #trying to understand source of missingness
-# N_load_b_wide  %>%
-#   summarise_all(list(~is.na(.)))%>%
-#   select(-'key') %>%
-#   pivot_longer(everything(),
-#                names_to = "variables", values_to="missing") %>%
-#   count(variables, missing) %>%
-#   ggplot(aes(y=variables,x=n,fill=missing))+
-#   geom_col(position = "fill")+
-#   labs(x="Proportion")+
-#   scale_fill_manual(values=c("lightgreen","lightred"))+
-#   theme(axis.title.y=element_blank())
+# #calculating N loads
+# N_load_b_wide <- flow_N_concentration %>%
+#   mutate(kg_N_TN_per_month = mg_N_per_L_TN * million_L_per_month_flow_rate) %>%
+#   mutate(kg_N_ON_per_month = mg_N_per_L_ON * million_L_per_month_flow_rate) %>%
+#   mutate(kg_N_NH3_per_month = mg_N_per_L_NH3 * million_L_per_month_flow_rate) %>%
+#   mutate(kg_N_NO2_per_month = mg_N_per_L_NO2 * million_L_per_month_flow_rate) %>%
+#   mutate(kg_N_NO3_per_month = mg_N_per_L_NO3 * million_L_per_month_flow_rate) 
+# 
+# #combine N columns in N_load_b to standardize and join dataframes
+# names(N_load_b_wide)
+# length(unique(as.character(N_load_b_wide$permit_outfall))) #730 outfalls included here
+# 
+# # #trying to understand source of missingness
+# # N_load_b_wide  %>%
+# #   summarise_all(list(~is.na(.)))%>%
+# #   select(-'key') %>%
+# #   pivot_longer(everything(),
+# #                names_to = "variables", values_to="missing") %>%
+# #   count(variables, missing) %>%
+# #   ggplot(aes(y=variables,x=n,fill=missing))+
+# #   geom_col(position = "fill")+
+# #   labs(x="Proportion")+
+# #   scale_fill_manual(values=c("lightgreen","lightred"))+
+# #   theme(axis.title.y=element_blank())
 
 
 
@@ -520,11 +549,11 @@ N_load_b<- N_load_b %>%
   select(-kg_N_sum_per_month)
 
 names(N_load_b)
-length(unique(as.character(N_load_b$permit_outfall))) #328 outfalls included here
+length(unique(as.character(N_load_b$permit_outfall))) #730 outfalls included here
 length(is.na(N_load_b$kg_N_TN_per_month)) #but there are 42,951 NA values
 #how many outfalls without NAs for TN?
 N_load_b_noNA<-N_load_b %>% filter(!is.na(kg_N_TN_per_month))
-length(unique(as.character(N_load_b_noNA$permit_outfall))) #18 outfalls included here
+length(unique(as.character(N_load_b_noNA$permit_outfall))) #94 outfalls included here
 
 
 #for N_load_a
@@ -547,8 +576,8 @@ names(N_load_a)
 #combine dataframes
 N_load<-rbind(N_load_a,N_load_b)
 
-length(unique(as.character(N_load$permit_outfall))) #328 outfalls with/without locations
-nrow(N_load) #still 43,376--did not remove additional keys
+length(unique(as.character(N_load$permit_outfall))) #732 outfalls with/without locations
+nrow(N_load) #112,054
 
 # write.csv(N_load,
 #           file = here("data", "ECHO_data_clean_all.csv"),
@@ -582,13 +611,16 @@ outfall_locations$permit_outfall <-
 
 
 #join locations based on permit number and outfall number
-dim(N_load) #44,848     7
-length(unique(N_load$permit_outfall)) #328 outfalls with/without locations
-
+dim(N_load) #112,054, 15
+length(unique(N_load$permit_outfall)) #732 outfalls with/without locations
+length(unique(N_load$key)) #101,766 keys
 dim(outfall_locations) # 434725      6
+
 N_load_out <- left_join(N_load, outfall_locations, by = "permit_outfall")
-dim(N_load_out) #51,028     12
-length(unique(as.character(N_load_out$permit_outfall))) #328 outfalls with locations
+dim(N_load_out) #129675, 20
+
+length(unique(as.character(N_load_out$permit_outfall))) #732 outfalls with locations
+length(unique(as.character(N_load_out$key))) #101,766 keys
 
 ```
 
@@ -623,7 +655,8 @@ dat_join<- left_join(N_load_out, HUC8_outfall_locations, by = "permit_outfall")
 
 dim(N_load_out) #53,599
 dim(dat_join) #53,599
-length(unique(as.character(dat_join$permit_outfall))) #328 outfalls with locations
+length(unique(as.character(dat_join$permit_outfall))) #732 outfalls with locations
+length(unique(as.character(dat_join$key))) #101,766 keys
 
 
 write.csv(dat_join,
