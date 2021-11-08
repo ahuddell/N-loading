@@ -20,6 +20,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(lubridate)
 library(here)
+library(sf)
 
 col_specifications<-('ccffffffffffddff') #compact string to specify column types
 
@@ -33,6 +34,11 @@ CT<-read_csv(file=here("data","CT_NX_data.csv"))
 CT<-distinct(CT) #remove a few duplicate rows
 CT_permits<-unique(CT$permit)
 
+outfall_locations <-
+  read_csv(file = here("data", "npdes_outfalls_layer.csv"))
+join<-left_join(dat,outfall_locations)
+SIC_desc<-join %>% group_by(SIC_CODES, SIC_DESCRIPTIONS) %>%
+  summarize(first(SIC_CODES))
 
 ```
 #Data exploration visualization
@@ -137,7 +143,7 @@ dat <- dat %>%
     )
   ) %>% #by this line, there are  57,703 keys dropped and 535 permit/outfalls dropped
   filter(!Parameter == "50047 - Flow, maximum during 24 hr period") %>% #by this line, there are 58,062 keys dropped and 538 permit/outfalls dropped
-  filter(!permit %in% CT_permits) %>% #this line removes the CT waterwater treatment plants because we will use CTDEEP data for those
+  filter(!permit %in% CT_permits) %>% #this line removes the CT waste water treatment plants because we will use CTDEEP data for those
   #by this line, there are 77,458 keys dropped and 613 permit/outfalls dropped
   
   #removing specific designators that cause duplicates--always removing the less frequent
@@ -720,11 +726,23 @@ length(unique(as.character(N_load_CT_join$key))) #38,159 keys
 
 Loading in NPDES database with NPDES ID to match locations and other data.
 
-```{r}
+```{r old outfall location join}
 outfall_locations <-
-  read_csv(file = here("data", "NPDES_PERM_FEATURE_COORDS.csv"))
+  read_csv(file = here("data", "npdes_outfalls_layer.csv"))
 
 names(outfall_locations)
+
+outfall_locations<-outfall_locations %>%
+  select(EXTERNAL_PERMIT_NMBR,
+         FACILITY_NAME,
+         SIC_CODES,
+         SIC_DESCRIPTIONS,
+         PERM_FEATURE_NMBR,
+         STATE_WATER_BODY_NAME,
+         LATITUDE83,
+         LONGITUDE83)
+
+
 
 names(N_load_CT_join)
 
@@ -740,7 +758,6 @@ outfall_locations$permit_outfall <-
          "_",
          outfall_locations$PERM_FEATURE_NMBR)
 
-
 #join locations based on permit number and outfall number
 dim(N_load_CT_join) #43,681, 7
 length(unique(N_load_CT_join$permit_outfall)) #264 outfalls with/without locations
@@ -752,48 +769,76 @@ dim(N_load_out) #44,626, 12
 length(unique(as.character(N_load_out$permit_outfall))) #264 outfalls with locations
 length(unique(as.character(N_load_out$key))) #38,159 keys
 
-#there were rows added by the join (not sure why), but none subtracted
+#there were rows added by the join (there must be some duplication in the outfalls_locations data?), but none subtracted
 
 ```
 
-Now join the HUC8 IDs to the data.
+Loading in NPDES database with NPDES ID to match locations and other data.
+
 
 ```{r}
-HUC8_outfall_locations <-
-  read_csv(file = here('data', 'HUC8_NPDES_outfall_intersection.csv'))
+#convert N_load_out to an sf object
+no_na<-drop_na(N_load_out, LONGITUDE83)
+N_load_out_sf<-st_as_sf(no_na, coords =c('LONGITUDE83','LATITUDE83'))
 
-#select columns
-HUC8_outfall_locations <- HUC8_outfall_locations %>%
-  select('EXTERNAL_PERMIT_NMBR',
-         'PERM_FEATURE_NMBR',
-         'huc8',
-         'name')
+#read in huc8 file
+huc8 = st_read(here('data','huc_8_dat_join','N_load_huc_join.shp'))
 
-names(HUC8_outfall_locations)
-
-#need to remove leading zeroes from outfall column
-HUC8_outfall_locations$PERM_FEATURE_NMBR <- sub("^0+", "", HUC8_outfall_locations$PERM_FEATURE_NMBR)
-HUC8_outfall_locations$PERM_FEATURE_NMBR
+#set CRS of N_load_out to match the huc8 layer
+st_crs(N_load_out_sf) <- st_crs(huc8)
 
 
-#create key variables with permit and locations for join
-HUC8_outfall_locations$permit_outfall <-
-  paste0(HUC8_outfall_locations$EXTERNAL_PERMIT_NMBR,
-         "_",
-         HUC8_outfall_locations$PERM_FEATURE_NMBR)
+joined = st_contains(N_load_out_sf,huc8)
 
-#join locations based on permit number and outfall number
-dat_join<- left_join(N_load_out, HUC8_outfall_locations, by = "permit_outfall")
 
-dim(N_load_out) #53,599
-dim(dat_join) #53,599
-length(unique(as.character(dat_join$permit_outfall))) #264 outfalls with locations
-length(unique(as.character(dat_join$key))) #38,159 keys
+# 
+# HUC8_outfall_locations <-
+#   read_csv(file = here('data', 'HUC8_NPDES_outfall_intersection.csv'))
+# 
+# #select columns
+# HUC8_outfall_locations <- HUC8_outfall_locations %>%
+#   select('EXTERNAL_PERMIT_NMBR',
+#          'PERM_FEATURE_NMBR',
+#          'huc8',
+#          'name')
+# 
+# names(HUC8_outfall_locations)
+# 
+# #need to remove leading zeroes from outfall column
+# HUC8_outfall_locations$PERM_FEATURE_NMBR <- sub("^0+", "", HUC8_outfall_locations$PERM_FEATURE_NMBR)
+# HUC8_outfall_locations$PERM_FEATURE_NMBR
+# 
+# 
+# #create key variables with permit and locations for join
+# HUC8_outfall_locations$permit_outfall <-
+#   paste0(HUC8_outfall_locations$EXTERNAL_PERMIT_NMBR,
+#          "_",
+#          HUC8_outfall_locations$PERM_FEATURE_NMBR)
+# 
+# 
+# #test
+# HUC_comparison<-left_join(loc_comparison,HUC8_outfall_locations)
+# 
+# HUC_comparison$HUC_12_8<-paste0(0,substr(HUC_comparison$HUC_12,1,7))
+# 
+# HUC_comparison$HUC_dif<-as.numeric(HUC_comparison$HUC_12_8)-as.numeric(HUC_comparison$huc8)
+# 
+# SIC_desc<-HUC_comparison %>% group_by(SIC_CODES, SIC_DESCRIPTIONS) %>%
+#   summarize(first(SIC_CODES))
+# write.csv(SIC_desc, "SIC codes.csv", row.names = F)
+# 
+# #join locations based on permit number and outfall number
+# dat_join<- left_join(N_load_out, HUC8_outfall_locations, by = "permit_outfall")
+
+dim(N_load_out) #43,681
+dim(joined) #53,599
+length(unique(as.character(joined$permit_outfall))) #264 outfalls with locations
+length(unique(as.character(joined$key))) #38,159 keys
 
 #the number of keys and outfalls with locations are the same as in the last step
 
 
-write.csv(dat_join,
+write.csv(joined,
           file = here("data", "ECHO_data_clean.csv"),
           row.names = F)
 
