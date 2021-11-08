@@ -13,8 +13,7 @@ library(lubridate)
 id<-c('01080101','01080102','01080103','01080104','01080105','01080106','01080107',
       '01080201','01080202','01080203','01080204','01080205','01080206','01080207',
       '01100001','01100002','01100003','01100004','01100005','01100006','01100007',
-      '01090006','02030102','02030201')
-
+      '01090006','02030102','02030201','02030202','02030203')
 
 #creating directory to place the zipfiles
 #make this a temp folder later 
@@ -114,7 +113,12 @@ huc8_02030102<-st_read(
 huc8_02030201<-st_read(
   here('data','huc8 shapes',paste0('HUC8_','02030201'),'Shape'), 
   layer='WBDHU8')
-
+huc8_02030202<-st_read(
+  here('data','huc8 shapes',paste0('HUC8_','02030202'),'Shape'), 
+  layer='WBDHU8')
+huc8_02030203<-st_read(
+  here('data','huc8 shapes',paste0('HUC8_','02030203'),'Shape'), 
+  layer='WBDHU8')
 
 
 #join polygons
@@ -125,11 +129,48 @@ huc8_combined <- dplyr::bind_rows(list(huc8_01080101,huc8_01080102,huc8_01080103
                                        huc8_01080206,huc8_01080207,huc8_01090006,
                                        huc8_01100001,huc8_01100002,huc8_01100003,
                                        huc8_01100004,huc8_01100005,huc8_01100006,
-                                       huc8_01100007,huc8_02030102,huc8_02030201))
+                                       huc8_01100007,huc8_02030102,huc8_02030201,
+                                       huc8_02030202,huc8_02030203))
 mapview(huc8_combined) 
 
 #now transforming all CRS
 huc8_combined<-st_transform(huc8_combined, crs=4326)
+
+# outfalls join -----------------------------------------------------------
+
+outfall_locations <-
+  read_csv(file = here("data", "npdes_outfalls_layer.csv"))
+names(outfall_locations)
+
+outfall_locations<-outfall_locations %>%
+  select(EXTERNAL_PERMIT_NMBR,
+         FACILITY_NAME,
+         SIC_CODES,
+         SIC_DESCRIPTIONS,
+         PERM_FEATURE_NMBR,
+         STATE_WATER_BODY_NAME,
+         LATITUDE83,
+         LONGITUDE83)
+
+outfall_locations$permit_outfall <-
+  paste0(outfall_locations$EXTERNAL_PERMIT_NMBR,
+         "_",
+         outfall_locations$PERM_FEATURE_NMBR)
+
+
+
+#convert outfalls to an sf object
+no_na<-drop_na(outfall_locations, LONGITUDE83)
+outfall_locations_sf<-st_as_sf(no_na, coords =c('LONGITUDE83','LATITUDE83'))
+
+#set CRS of outfalls to match the huc8 layer
+st_crs(outfall_locations_sf) <- st_crs(huc8_combined)
+
+
+joined = st_join(huc8_combined,outfall_locations_sf)
+
+st_write(joined, here('data','huc8_outfall_join.csv'), layer_options = "GEOMETRY=AS_XY")
+
 
 # read in our data convert to sf object -----------------------------------
 
@@ -139,7 +180,7 @@ dat<-read_csv( file = here('data', 'ECHO_data_clean.csv'))
 
 #calculating monthly TN totals by watershed
 dat_summary<- dat %>%
-  group_by(huc8,date) %>%
+  group_by(huc8,month_year) %>%
   summarise(kgN_huc8=sum(kg_N_TN_per_month,na.rm=T))
 
 #join huc spatial data to monthly totals
