@@ -6,7 +6,58 @@ library(mapview)
 library(leaflet)
 library(lubridate)
 
-st_read(here('data','huc_8_dat_join','huc8_combined.shp'))
+huc8<-st_read(here('data','huc_8_dat_join','huc8_combined.shp'))
+
+pt1 = st_point(c(-73.919139,40.787833))
+pt2 = st_point(c(-73.965583,40.731139))
+pt3 = st_point(c(-73.984389,40.705722))
+
+st_sfc(pt1, pt2,pt3)
+d = data.frame(permit_outfall=c('NY0026131_1','NY0026204_1',
+                                'NY0027073_1'))
+d$geom = st_sfc(pt1, pt2, pt3)
+d
+
+outfalls<-st_as_sf(d,sf_column_name='geom')
+
+#set CRS of outfalls to match the huc8 layer
+st_crs(outfalls) <- st_crs(huc8)
+
+
+
+# explore outfalls in East River ------------------------------------------
+huc8_names <- huc8%>%
+  group_by(name) %>%
+  slice(1) %>%
+  st_centroid() 
+
+#leaflet map
+m <- leaflet(huc8) %>%
+  addProviderTiles(providers$OpenStreetMap) %>%
+  addPolygons( fillColor = ~ "lightgrey",
+               weight = 1,
+               color = 'black',
+               opacity = 1,
+               fillOpacity = 098)  %>%
+  addCircleMarkers(
+    data = outfalls$geom,
+    col = 'red',
+    fillOpacity = .8,
+    radius = 2
+  )%>%
+  addLabelOnlyMarkers(data = huc8_names,
+                      lng = ~unlist(map(huc8_names$geometry,1)), 
+                      lat = ~unlist(map(huc8_names$geometry,2)), label = ~name,
+                      labelOptions = labelOptions(noHide = TRUE, 
+                                direction = 'top', textOnly = TRUE)) %>%
+  setView(lat = 40.8,
+        lng = -73.9 ,
+        zoom = 10) 
+
+m
+
+
+
 
 # read in our data convert to sf object -----------------------------------
 
@@ -43,9 +94,9 @@ st_write(N_load_huc_join,
 #for plotting outfall points; convert to sf obj
 
 #remove NAs from lat/ long
-dat_noNA<- dat %>% drop_na(c('LONGITUDE_MEASURE','LATITUDE_MEASURE'))
+dat_noNA<- dat %>% drop_na(c('LONGITUDE83','LATITUDE83'))
 
-dat_sf <- st_as_sf(dat_noNA, coords = c('LONGITUDE_MEASURE', 'LATITUDE_MEASURE'), 
+dat_sf <- st_as_sf(dat_noNA, coords = c('LONGITUDE83', 'LATITUDE83'), 
                    crs = 4326)
 
 dat_sf
