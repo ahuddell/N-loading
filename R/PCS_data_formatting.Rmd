@@ -594,6 +594,12 @@ length(unique(as.character(N_load_out$permit_outfall))) #35 outfalls with locati
 length(unique(as.character(N_load_out$key))) #3115 keys
 #same data after join
 
+#check for NA's in latitude
+summary(N_load_out$LATITUDE83) #268 missing values
+missing_latitude<-N_load_out %>% filter(is.na(LATITUDE83)) %>%
+  group_by(permit_outfall)%>%
+  summarize(LATITUDE83=first(LATITUDE83))
+
 ```
 
 Loading in NPDES database with NPDES ID to match locations and other data.
@@ -635,6 +641,16 @@ length(unique(as.character(dat_join$key))) #3115 keys
 
 #the number of keys and outfalls with locations are the same as in the last step
 
+#check for NA's in huc8s
+missing_huc8<-dat_join %>% filter(is.na(huc8)) %>%
+  group_by(permit_outfall)%>%
+  summarize(huc8=first(huc8),
+            LATITUDE83=first(LATITUDE83),
+            LONGITUDE83=first(LONGITUDE83))
+missing_huc8
+#there are 5 outfalls with missing HUC8 assignments
+write_csv(missing_huc8,
+          file = here("PCS_missing_huc8.csv"))
 
 write.csv(dat_join,
           file = here("data", "PCS_data_clean.csv"),

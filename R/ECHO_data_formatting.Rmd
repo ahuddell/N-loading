@@ -34,12 +34,6 @@ CT<-read_csv(file=here("data","CT_NX_data.csv"))
 CT<-distinct(CT) #remove a few duplicate rows
 CT_permits<-unique(CT$permit)
 
-outfall_locations <-
-  read_csv(file = here("data", "npdes_outfalls_layer.csv"))
-join<-left_join(dat,outfall_locations)
-SIC_desc<-join %>% group_by(SIC_CODES, SIC_DESCRIPTIONS) %>%
-  summarize(first(SIC_CODES))
-
 ```
 #Data exploration visualization
 ```{r}
@@ -120,6 +114,47 @@ dat<-dat%>%
   mutate(permit_freq = paste0(permit, "_", `DMR Frequency of Analysis Code1`))
 
 
+##read outfall locations data, add key, and join to dat
+outfall_locations <-
+  read_csv(file = here("data", "npdes_outfalls_layer.csv"))
+
+outfall_locations$permit <-outfall_locations$EXTERNAL_PERMIT_NMBR
+
+join<-left_join(dat,outfall_locations, by='permit')
+
+SIC_permit<-join %>%
+  group_by(permit) %>%
+  summarize(SIC=first(SIC_DESCRIPTIONS),
+            SIC_CODES=first(SIC_CODES)) 
+
+SIC_permit_count<- SIC_permit %>%
+  group_by(SIC,SIC_CODES) %>%
+  tally()%>%
+  arrange(desc(n))  
+
+SIC_permit_count%>%
+  filter(n>5)%>%
+  ggplot(aes(SIC ,n))+
+  geom_col() +
+  ylab("count of observations")+
+  theme(axis.text.x=element_text(angle = 60, hjust=1))
+
+#list of SIC codes to keep?
+#	Sewerage Systems--4952
+# Colleges And Universities; Elementary And Secondary Schools--8221
+#Services; Sewerage Systems--8999 
+#Fish Hatcheries And Preserves--921
+#Paper Mills--2621
+SIC_CODES_keep<-c('4952','8221','8999', '921', '2621', '4952 8221',
+                  '9512 4952', '8999 4952')
+
+permits_to_keep<-join %>%
+  filter(SIC_CODES %in% SIC_CODES_keep) %>%
+  group_by(permit)%>%
+  summarize(permit=first(permit),
+            facility=first(facility),
+            SIC_CODES=first(SIC_CODES))
+
 
 unique(dat$state)
 length(unique(as.character(dat$permit_outfall))) #1270 permit/outfalls
@@ -131,6 +166,8 @@ length(levels(as.factor(dat$key))) #159828 keys
 ```{r filter functions}
 #check dimensions and levels of permit outfalls
 dat <- dat %>%
+   filter(permit %in% (permits_to_keep$permit)) %>%  
+  filter(!permit %in% c('CT0000434','CT0026476','NY0065340','NY0066028')) %>% #removing some industrial permits that seem unrelated to sewerage systems, but some small private WWTPs are still included (like hospitals)
   #filtering to only gross effluent monitoring locations
   filter(`Monitoring Location` %in% c("1", "2", "EA", "EG", "Y")) %>% #this drops 5,945 keys and 95 permit/outfalls
   #removing infrequently used statistical base codes
@@ -143,53 +180,14 @@ dat <- dat %>%
     )
   ) %>% #by this line, there are  57,703 keys dropped and 535 permit/outfalls dropped
   filter(!Parameter == "50047 - Flow, maximum during 24 hr period") %>% #by this line, there are 58,062 keys dropped and 538 permit/outfalls dropped
-  filter(!permit %in% CT_permits) %>% #this line removes the CT waste water treatment plants because we will use CTDEEP data for those
+ # filter(!permit %in% CT_permits) %>% #this line removes the CT waste water treatment plants because we will use CTDEEP data for those
   #by this line, there are 77,458 keys dropped and 613 permit/outfalls dropped
-  
-  #removing specific designators that cause duplicates--always removing the less frequent
-  #code when that is clear
+  # 
+  # #removing specific designators that cause duplicates--always removing the less frequent
+  # #code when that is clear
   filter(!permit_outfall_designator == 'MA0101508_010_Q') %>% #this one was quarterly vs. subweekly
-  filter(!permit_outfall_designator == 'NH0023523_001_B') %>% #this one was monthly vs. quarterly
-  filter(!permit_outfall_designator == 'NH0023523_001_B')  %>% #not sure, but I think this is a grab vs. 24h composite
-  filter(!permit_outfall_designator == 'MAR053641_001_2L') %>% #this one I'm not sure, but they both seem similar
-  filter(!permit_outfall_designator == 'MAR053641_002_2L') %>% #this one I'm not sure, but they both seem similar
-  filter(!permit_outfall_designator == 'MAR053641_003_2L') %>% #this one I'm not sure, but they both seem similar
-  filter(!permit_outfall_designator == 'MAR053641_004_2L') %>% #this one I'm not sure, but they both seem similar
-  filter(!permit_outfall_designator == 'MAR053641_005_2L') %>% #this one I'm not sure, but they both seem similar
-  filter(!permit_outfall_designator == 'MAR053641_006_2L') %>% #this one I'm not sure, but they both seem similar
-  filter(!permit_outfall_designator == 'MAR053641_007_2L') %>% #this one I'm not sure, but they both seem similar
-  filter(!permit_outfall_designator == 'MAR053641_009_2L') %>% #this one I'm not sure, but they both seem similar
-  filter(!permit_outfall_designator == 'MAR053641_010_2L') %>% #this one I'm not sure, but they both seem similar
-  filter(!permit_outfall_designator == 'MAR053641_011_2L') %>% #this one I'm not sure, but they both seem similar
-  filter(!permit_outfall_designator == 'MAR053641_012_2L') %>% #this one I'm not sure, but they both seem similar
-  filter(!permit_outfall_designator == 'NH0101052_001_B')  %>% #this one was quarterly vs. subweekly
-  filter(!permit_outfall_designator == 'NY0026131_001_M')  %>% #this one I'm not sure, but N was more common
-  filter(!permit_outfall_designator == 'NY0026204_001_M')  %>% #this one I'm not sure, but N was more common
   filter(!permit_outfall_designator == 'NY0022128_001_M')  %>% #this one I'm not sure, but N was more common
-  filter(!permit_outfall_designator == 'NY0026239_001_M')  %>%  #this one I'm not sure, but N was more common
-  filter(!permit_outfall_designator == 'CT0003921_001_A') %>% #not sure about this one either, but "1" reported N in my spot checks
-  filter(!permit_outfall_designator == 'CT0003824_001_A')  %>%  #this one I'm not sure, but C reported highest flow rate
-  filter(!permit_outfall_designator == 'CT0003824_001_B')  %>%  #this one I'm not sure, but C reported highest flow rate
-  filter(!permit_outfall_designator == 'CT0003824_001_D')  %>%  #this one I'm not sure, but C reported highest flow rate
-  filter(!permit_outfall_designator == 'CT0003824_001_E')  %>%  #this one I'm not sure, but C reported highest flow rate
-  filter(!permit_outfall_designator == 'CT0003824_002_A')  %>%  #this one I'm not sure, but B reported highest flow rate
-  filter(!permit_outfall_designator == 'CT0003824_002_C')  %>%  #this one I'm not sure, but B reported highest flow rate
-  filter(!permit_outfall_designator == 'CT0021873_001_B')  %>%  #this one I'm not sure, but B reported highest flow rate
-  filter(!permit_outfall_designator == 'NH0023523_002_B')  %>%  #this one I'm not sure, but A reported higher loads
-  filter(!permit_outfall_designator == 'CT0025305_001_A') %>% #not sure about this one either, but "1" reported N in my spot checks
-  filter(!permit_freq == 'CT0003212_01/YR') %>%
-  filter(!permit_outfall_designator == 'CT0003263_001B_5') %>% #not sure about this one either, but "1" seemed most reasonable
-  filter(!permit_outfall_designator == 'CT0003263_001B_0') %>% #not sure about this one either, but "1" seemed most reasonable
-  filter(!permit_outfall_designator == 'CT0003263_001B_11') %>% #not sure about this one either, but "1" seemed most reasonable
-  filter(!permit_outfall_designator == 'CT0003263_001B_10') %>% #not sure about this one either, but "1" seemed most reasonable
-  filter(!permit_outfall_designator == 'CT0003263_001B_0') %>% #designator 11 was most frequent sampling
-  filter(!permit_outfall_designator == 'CT0003263_001B_0') %>% #designator 11 was most frequent sampling
-  filter(!permit_outfall_designator == 'CT0003263_001B_1') %>% #designator 11 was most frequent sampling
-  filter(!permit_outfall_designator == 'CT0003263_001B_5') %>% #designator 11 was most frequent sampling
-  filter(!permit_outfall_designator == 'CT0003263_001B_10') %>% #designator 11 was most frequent sampling
-  filter(!permit_outfall_designator == 'CT0020826_001_A') %>% #designator 1 included N
-  filter(!permit_outfall_designator == 'CTP001412_001_A') %>% #designator B included N
-  drop_na((value)) #drop rows with no value reported
+   drop_na((value)) #drop rows with no value reported
 
 
 
@@ -198,8 +196,8 @@ dat$Units <- droplevels(dat)$Units # dropping unused levels
 dat$`Statistical Base Long Desc` <- droplevels(dat)$`Statistical Base Long Desc` #dropping unused levels 
 dat$Designator <- droplevels(dat)$Designator # dropping unused levels 
 
-length(unique(as.character(dat$permit_outfall))) #562 permit/outfalls
-length(levels(as.factor(dat$key))) #65,714 keys
+length(unique(as.character(dat$permit_outfall))) #220 permit/outfalls
+length(levels(as.factor(dat$key))) #46,661 keys
 
 
 ```
@@ -411,7 +409,7 @@ N_load_a<-N_load %>%
 
 names(N_load_a)
 
-length(unique(as.character(N_load_a$permit_outfall))) #90 outfalls included here
+length(unique(as.character(N_load_a$permit_outfall))) #75 outfalls included here
 
 
 ```
