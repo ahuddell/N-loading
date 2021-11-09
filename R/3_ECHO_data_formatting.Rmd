@@ -97,6 +97,11 @@ dat$`Reported Value` <-
 dim(dat)
 names(dat)
 
+#need to remove leading zeroes from outfall column
+dat$Outfall <- sub("^0+", "", dat$Outfall)
+dat$Outfall
+
+
 #renaming columns and 
 dat<-dat%>%
   rename(date=`Monitoring Period`,
@@ -763,10 +768,10 @@ HUC8_outfall_locations <- HUC8_outfall_locations %>%
 
 names(HUC8_outfall_locations)
 
-# #need to remove leading zeroes from outfall column
-# HUC8_outfall_locations$PERM_FEATURE_NMBR <- sub("^0+", "", HUC8_outfall_locations$PERM_FEATURE_NMBR)
-# HUC8_outfall_locations$PERM_FEATURE_NMBR
-# 
+#need to remove leading zeroes from outfall column
+HUC8_outfall_locations$PERM_FEATURE_NMBR <- sub("^0+", "", HUC8_outfall_locations$PERM_FEATURE_NMBR)
+HUC8_outfall_locations$PERM_FEATURE_NMBR
+
 
 #create key variables with permit and locations for join
 HUC8_outfall_locations$permit_outfall <-
@@ -774,6 +779,9 @@ HUC8_outfall_locations$permit_outfall <-
          "_",
          HUC8_outfall_locations$PERM_FEATURE_NMBR)
 
+HUC8_outfall_locations$permit_outfall
+
+N_load_out$permit_outfall
 
 #join locations based on permit number and outfall number
 dat_join<- left_join(N_load_out, HUC8_outfall_locations, by = "permit_outfall")
