@@ -648,6 +648,7 @@ missing_huc8<-dat_join %>% filter(is.na(huc8)) %>%
             LATITUDE83=first(LATITUDE83),
             LONGITUDE83=first(LONGITUDE83))
 missing_huc8
+
 #there are 5 outfalls with missing HUC8 assignments
 write_csv(missing_huc8,
           file = here("PCS_missing_huc8.csv"))
