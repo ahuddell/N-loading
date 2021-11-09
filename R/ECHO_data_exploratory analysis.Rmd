@@ -62,7 +62,7 @@ max(dat$date)
 Sum monthly N loads by watershed through time.
 ```{r}
 N_load_month_huc8<-dat %>%
-  group_by(huc8, date)%>%
+  group_by(huc8, month_year)%>%
   summarize(sum(kg_N_TN_per_month, na.rm = T))
 
 
@@ -86,6 +86,8 @@ HUC8<-nhdplusTools::get_huc8(AOI=dat_sf$geometry)
 #viewing data extents on map
 mapview(HUC8)
 mapview(dat_sf)
+
+#there are a lot of data in central asia that we should check--
 
 leaflet() %>% 
   addProviderTiles(providers$Esri.WorldStreetMap) %>%
