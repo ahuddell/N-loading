@@ -340,13 +340,19 @@ N_load %>%
   arrange(desc(n))
 # there are no duplicates
 
+unique(N_load$param_simple)
+
 #pivoting the TN and NH3 observations into wide format and removing flow and concentration columns
 N_load_a<-N_load %>%
    pivot_wider(names_from = param_simple,
               values_from = kg_per_month) %>%
-   select(-million_L_per_month,- mg_N_per_L ,- NO3, - NO2, -TKN, -NO2NO3, -`Meas Conc Maxm (MCMX)...16`, -`Meas Conc Maxm (MCMX)...15`) %>%
+   select(-million_L_per_month,- mg_N_per_L , -`Meas Conc Maxm (MCMX)...16`, -`Meas Conc Maxm (MCMX)...15`) %>%
   rename(kg_N_TN_per_month=TN,
-         kg_N_NH3_per_month=NH3)
+         kg_N_NH3_per_month=NH3,
+        kg_N_NO3_per_month=NO3, 
+        kg_N_NO2_per_month=NO2, 
+        kg_N_NO2NO3_per_month=NO2NO3,
+        kg_N_TKN_per_month=TKN)
 
 names(N_load_a)
 length(unique(as.character(N_load_a$permit_outfall))) #38 outfalls included here 
@@ -529,32 +535,53 @@ N_load_b<- N_load_b %>%
 names(N_load_b)
 length(unique(as.character(N_load_b$permit_outfall))) #203 outfalls included here
 
+
 #for N_load_a
 #combine the different N columns; use total N when reported, or the sum of all other
 #forms of N if TN is not reported
 
-#here we split the grouped keys apart and then put them back together to select only one kg_N_TN_per_month per key
-N_load_a_1 <-N_load_a%>%
-  group_by(key) %>%
-  filter(all(is.na(kg_N_TN_per_month)))%>% #filter to groups with no reported kg_N_TN_per_month value
-  mutate(kg_N_TN_per_month=kg_N_NH3_per_month)%>% #and use the reported NH3 value instead
-  select(-kg_N_NH3_per_month)
+#check if any rows contain both NO3 or NO2 and NO3NO2 before we combine them
+filter(N_load_a, !is.na(kg_N_NO3_per_month) & !is.na(kg_N_NO2NO3_per_month))
+#there are none, so we can add them without double counting
+filter(N_load_a, !is.na(kg_N_NO2_per_month) & !is.na(kg_N_NO2NO3_per_month)) #14 rows have both, so we have to subtract NO2 from kg_N_NO3NO2_per_month for those rows
 
-N_load_a_2 <-N_load_a%>%
-  group_by(key) %>%
-  filter(any(!is.na(kg_N_TN_per_month)))%>% #filter to groups with at least one reported kg_N_TN_per_month value to bind to the rest of the data
-  select(-kg_N_NH3_per_month)
-  
-N_load_a<-rbind(N_load_a_1,N_load_a_2) #bind the two groups back together
-  
+N_load_a$kg_N_sum_per_month <-
+  ifelse(!is.na(N_load_a$kg_N_TKN_per_month),
+    (N_load_a$kg_N_TKN_per_month + N_load_a$kg_N_NO3_per_month +        N_load_a$kg_N_NO2_per_month + N_load_a$kg_N_NO2NO3_per_month ),
+    (N_load_a$kg_N_NH3_per_month + N_load_a$kg_N_NO3_per_month +   N_load_a$kg_N_NO2_per_month +  N_load_a$kg_N_NO2NO3_per_month )
+  )
+
+length(unique(as.character(N_load_a$permit_outfall))) #38 outfalls included here
+
+
+#remove intermediate columns we no longer need
+N_load_a <- N_load_a %>%
+  select(
+    -kg_N_NH3_per_month,
+    -kg_N_NO3_per_month,
+    -kg_N_NO2_per_month,
+    -kg_N_NO2NO3_per_month,
+    -kg_N_TKN_per_month
+  )
+
+#combine the different N columns; use total N when reported, or the sum of all other
+#forms of N if TN is not reported
+
+N_load_a$kg_N_TN_per_month <-  ifelse(!is.na(N_load_a$kg_N_TN_per_month),
+    N_load_a$kg_N_TN_per_month,
+    N_load_a$kg_N_sum_per_month )
+
+#remove other unnecessary columns
+N_load_a<- N_load_a %>%
+  select(-kg_N_sum_per_month)
 names(N_load_a)
 
 #combine dataframes
 N_load<-rbind(N_load_a,N_load_b)
 N_load<-drop_na(N_load,kg_N_TN_per_month) #dropping NA values 
 
-length(unique(as.character(N_load$permit_outfall))) #35 outfalls with/without locations
-length(unique(as.character(N_load$key))) #3,115 keys
+length(unique(as.character(N_load$permit_outfall))) #23 outfalls with/without locations
+length(unique(as.character(N_load$key))) #2,454 keys
 
 summary(N_load$kg_N_TN_per_month)
 
@@ -586,15 +613,15 @@ outfall_locations$permit_outfall <-
          outfall_locations$PERM_FEATURE_NMBR)
 
 #join locations based on permit number and outfall number
-dim(N_load) #3173
-length(unique(N_load$permit_outfall)) #35 outfalls with/without locations
-length(unique(N_load$key)) #3115 keys
+dim(N_load) #2454
+length(unique(N_load$permit_outfall)) #23 outfalls with/without locations
+length(unique(N_load$key)) #2454 keys
 
 N_load_out <- left_join(N_load, outfall_locations, by = "permit_outfall")
-dim(N_load_out) #3173, 20
+dim(N_load_out) #2454
 
-length(unique(as.character(N_load_out$permit_outfall))) #35 outfalls with locations
-length(unique(as.character(N_load_out$key))) #3115 keys
+length(unique(as.character(N_load_out$permit_outfall))) #23 outfalls with locations
+length(unique(as.character(N_load_out$key))) #2454 keys
 #same data after join
 
 #check for NA's in latitude
