@@ -344,7 +344,7 @@ N_load %>%
 N_load_a<-N_load %>%
    pivot_wider(names_from = param_simple,
               values_from = kg_per_month) %>%
-   select(-million_L_per_month,- mg_N_per_L ,- NO3, - NO2, -TKN, -NO2NO3, -state, -`Meas Conc Maxm (MCMX)...16`, -`Meas Conc Maxm (MCMX)...15`) %>%
+   select(-million_L_per_month,- mg_N_per_L ,- NO3, - NO2, -TKN, -NO2NO3, -`Meas Conc Maxm (MCMX)...16`, -`Meas Conc Maxm (MCMX)...15`) %>%
   rename(kg_N_TN_per_month=TN,
          kg_N_NH3_per_month=NH3)
 
@@ -524,7 +524,7 @@ N_load_b$kg_N_TN_per_month <-
 
 #remove N sum column
 N_load_b<- N_load_b %>%
-  select(-kg_N_sum_per_month, -permit_outfall_designator, -state)
+  select(-kg_N_sum_per_month, -permit_outfall_designator)
 
 names(N_load_b)
 length(unique(as.character(N_load_b$permit_outfall))) #203 outfalls included here
@@ -533,17 +533,20 @@ length(unique(as.character(N_load_b$permit_outfall))) #203 outfalls included her
 #combine the different N columns; use total N when reported, or the sum of all other
 #forms of N if TN is not reported
 
-N_load_a$kg_N_TN_per_month <-
-  ifelse(
-    !is.na(N_load_a$kg_N_TN_per_month),
-    N_load_a$kg_N_TN_per_month,
-    N_load_a$kg_N_NH3_per_month
-  )
-
-#remove NH3 column
-N_load_a<- N_load_a %>%
+#here we split the grouped keys apart and then put them back together to select only one kg_N_TN_per_month per key
+N_load_a_1 <-N_load_a%>%
+  group_by(key) %>%
+  filter(all(is.na(kg_N_TN_per_month)))%>% #filter to groups with no reported kg_N_TN_per_month value
+  mutate(kg_N_TN_per_month=kg_N_NH3_per_month)%>% #and use the reported NH3 value instead
   select(-kg_N_NH3_per_month)
 
+N_load_a_2 <-N_load_a%>%
+  group_by(key) %>%
+  filter(any(!is.na(kg_N_TN_per_month)))%>% #filter to groups with at least one reported kg_N_TN_per_month value to bind to the rest of the data
+  select(-kg_N_NH3_per_month)
+  
+N_load_a<-rbind(N_load_a_1,N_load_a_2) #bind the two groups back together
+  
 names(N_load_a)
 
 #combine dataframes

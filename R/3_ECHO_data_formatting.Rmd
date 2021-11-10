@@ -651,7 +651,7 @@ N_load_b$kg_N_TN_per_month <-  ifelse(!is.na(N_load_b$kg_N_TN_per_month),
 
 #remove other unnecessary columns
 N_load_b<- N_load_b %>%
-  select(-kg_N_sum_per_month, -permit_outfall_designator,- permit_freq, -state)
+  select(-kg_N_sum_per_month, -permit_outfall_designator,- permit_freq)
 
 names(N_load_b)
 length(unique(as.character(N_load_b$permit_outfall))) #111 outfalls included here
