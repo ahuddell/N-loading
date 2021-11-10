@@ -82,6 +82,17 @@ ggplot(levels, aes(`Monitoring Location`,n))+
   geom_col() +
   ylab("count of observations")
 
+#looking at distribution of 'column'
+levels(dat$Column)
+
+levels<-dat %>%
+  group_by(Column) %>%
+  tally()
+
+ggplot(levels, aes(Column,n))+
+  geom_col() +
+  ylab("count of observations")
+
 
 ```
 
@@ -183,7 +194,8 @@ dat <- dat %>%
       "Daily Average",
       "30 Day Arithmetic Mean"
     )
-  ) %>% #by this line, there are  57,703 keys dropped and 535 permit/outfalls dropped
+  ) %>% #by this line, there are  57,703 keys dropped and 535 permit/outfalls dropped 
+  filter(Column %in% c("Quantity Average", "Concentration Average"))
   filter(!Parameter == "50047 - Flow, maximum during 24 hr period") %>% #by this line, there are 58,062 keys dropped and 538 permit/outfalls dropped
  # filter(!permit %in% CT_permits) %>% #this line removes the CT waste water treatment plants because we will use CTDEEP data for those
   #by this line, there are 77,458 keys dropped and 613 permit/outfalls dropped
