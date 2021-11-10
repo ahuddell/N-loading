@@ -671,6 +671,9 @@ filter(N_load_a, !is.na(kg_N_NO3_per_month) & !is.na(kg_N_NO3NH3_per_month))
 filter(N_load_a, !is.na(kg_N_NH3_per_month) & !is.na(kg_N_NO3NH3_per_month))
 #there are none, so we can add them without double counting
 
+#checking for both TKN  or NO3 and NH3NO3
+filter(N_load_a, !is.na(kg_N_TKN_per_month) & !is.na(kg_N_NO3NH3_per_month))
+#there are none, so we can add them without double counting
 
 #isolating rows that report both NO2 and NO3NO2 to remove NO2
 N_load_a_1<-N_load_a %>%
