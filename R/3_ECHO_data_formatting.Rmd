@@ -626,13 +626,25 @@ filter(N_load_b, !is.na(kg_N_NO3_per_month) & !is.na(kg_N_NO3NO2_per_month))
 filter(N_load_b, !is.na(kg_N_NO2_per_month) & !is.na(kg_N_NO3NO2_per_month))
 #there are none, so we can add them without double counting
 
-##THIS FUNCTION IS NOT WORKING AND IS DROPPING OUT DATA
-N_load_b$kg_N_sum_per_month <-
-  ifelse(
-    is.na(N_load_b$kg_N_TKN_per_month),
-    (N_load_b$kg_N_NH3_per_month + N_load_b$kg_N_NO3_per_month + N_load_b$kg_N_NO2_per_month + N_load_b$kg_N_NO3NO2_per_month),
-    (N_load_b$kg_N_TKN_per_month + N_load_b$kg_N_NO3_per_month + N_load_b$kg_N_NO2_per_month + N_load_b$kg_N_NO3NO2_per_month)
-    )
+
+#sum up other forms of N apart from TN
+N_load_b <- N_load_b %>%
+  mutate(kg_N_sum_per_month =
+           case_when(
+             is.na(kg_N_TKN_per_month) ~ sum(
+               kg_N_NH3_per_month,
+               kg_N_NO3_per_month,
+               kg_N_NO2_per_month,
+               kg_N_NO3NO2_per_month,
+               na.rm = TRUE
+             ),!is.na(kg_N_TKN_per_month) ~ sum(
+               kg_N_TKN_per_month,
+               kg_N_NO3_per_month,
+               kg_N_NO2_per_month,
+               kg_N_NO3NO2_per_month,
+               na.rm = TRUE
+             )
+           )) 
 
 
 #remove intermediate columns we no longer need
