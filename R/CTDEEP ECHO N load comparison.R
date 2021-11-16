@@ -1,52 +1,120 @@
 
+library(tidyverse)
+library(lubridate)
+library(here)
 
-
-#Format and add in the CT data
-
-```{r}
+#load both datasets
+ECHO_all<-read_csv(file = here("data", "ECHO_data_clean.csv"))
 
 CT<-read_csv(file=here("data","CT_NX_data.csv"))
-
 CT<-distinct(CT) #remove a few duplicate rows
+
+#editing the three outliers 
+
+impute_value<-as.numeric(ECHO_all %>% filter(permit_outfall=='CT0100323_1' & date>'1999-06-30'
+                                             & date <'1999-10-31') %>% #grabbing months before and after August
+                           filter(!date=='1999-08-31') %>% #removing problematic date
+                           summarize(mean(kg_N_TN_per_month)))
+
+ECHO_all$kg_N_TN_per_month<-ifelse(
+  ECHO_all$key == 'CT0100323_1_1999-08-31', impute_value, ECHO_all$kg_N_TN_per_month)
+ECHO_all$kg_N_TN_per_month<-ifelse(
+  ECHO_all$key == 'CT0100447_1_2005-02-28', ECHO_all$kg_N_TN_per_month/10, ECHO_all$kg_N_TN_per_month)
+ECHO_all$kg_N_TN_per_month<-ifelse(
+  ECHO_all$key == 'CT0100447_1_2005-02-28', ECHO_all$kg_N_TN_per_month/1000, ECHO_all$kg_N_TN_per_month)
+
+
+
+
+#clean up a few problematic observations
+ 
+CT$TN_kg_d<-ifelse(
+  CT$TN_kg_d >3000000, CT$TN_lbs_d/2.205, CT$TN_kg_d) #this converts the lbs/day amount for a few outliers in flow and concentration that are clearly wrong
+
+# CT<-CT %>%
+#   mutate(date=mdy(date)) %>%
+#   mutate(month_year=format(as.Date(date), "%Y-%m")) %>%
+#   mutate(days = day(date)) %>%
+#   mutate(Outfall=rep(1)) %>%
+#   mutate(key_2 = paste0(permit, "_", Outfall, "_", month_year))
 
 #formatting CT data to join with rest of ECHO data
 CT_summary<-CT %>% 
   mutate(date=mdy(date)) %>%
   mutate(month_year=format(as.Date(date), "%Y-%m")) %>%
-  mutate(days = day(date)) %>%
+  mutate(days_date = day(date)) %>%
   mutate(Outfall=rep(1)) %>%
-  mutate(kg_N_TN_per_period=N_load_lbs_day*days/2.205) %>%
   group_by(permit,Outfall,month_year) %>%
-  summarise(kg_N_TN_per_month=sum(kg_N_TN_per_period)) %>%
+  arrange(date)%>%
+  mutate(date_sequence = row_number())%>%
+  mutate(day_interval= case_when( 
+    date_sequence == 1 ~ days_date,
+    date_sequence > 1 ~ days_date-dplyr::lag(days_date, n=1)
+    )) #computing the number of days in each reporting date interval
+
+CT_summary<-CT_summary %>% 
+  mutate(TN_kg_interval=day_interval*TN_kg_d) %>%#calculating N load per interval
+  group_by(permit,Outfall,month_year) %>%
+  summarise(kg_N_TN_per_month=sum(TN_kg_interval),
+            day_interval_total=sum(day_interval)) %>%
   mutate(permit_outfall=paste0(permit,"_",Outfall)) %>%
-  mutate(key = paste0(permit, "_", Outfall, "_", month_year)) 
+  mutate(key_2 = paste0(permit, "_", Outfall, "_", month_year)) 
 
-names(CT)
-permit_facility<-CT %>%
-  group_by(permit,facility) %>%
-  summarize(permit = first(permit),
-            facility = first(facility))
+CT_summary
 
-CT_summary<-left_join(CT_summary, permit_facility)
-
-
-N_load<- N_load %>%  
+ECHO_all<- ECHO_all %>%  
   mutate(month_year=format(as.Date(date), "%Y-%m")) %>%
-  select(-date)
+  select(-date) %>%
+  mutate(key_2=paste0(permit,'_',Outfall,'_',month_year))
 
-N_load$Outfall<-as.character(N_load$Outfall)
+ECHO_all$Outfall<-as.character(ECHO_all$Outfall)
 CT_summary$Outfall<-as.character(CT_summary$Outfall)
 
 
 
-#join locations based on permit number and outfall number
-N_load_CT_join <- rbind(N_load, CT_summary)
+#organizing keys
+CT_key<-list(unique(CT_summary$key_2))
+ECHO_key<-tibble(key=as.character(unique(ECHO_all$key_2)))
+CT_key
+ECHO_key
 
-dim(N_load_CT_join) #43681     
-dim(N_load) #25,745
-dim(CT_summary) #17,936
-length(unique(as.character(N_load_CT_join$permit_outfall))) #264 outfalls with locations
-length(unique(as.character(N_load_CT_join$key))) #38,159 keys
+#filtering for keys in both datasets
+dup_keys<-ECHO_key %>% 
+  filter(key %in% unlist(CT_key))
+dup_keys<-list(dup_keys)
+dup_keys
+
+#add column identifier (CTDEEP or ECHO) and filter and join data
+CT_dup<-CT_summary %>% 
+  filter(key_2 %in% unlist(dup_keys)) %>%
+  mutate(source=rep('CTDEEP'))%>%
+  select(key_2, kg_N_TN_per_month,month_year,source)
+CT_dup
 
 
-```
+ECHO_dup<-ECHO_all %>% 
+  filter(key_2 %in% unlist(dup_keys)) %>%
+  mutate(source=rep('ECHO')) %>%
+  select(key_2, kg_N_TN_per_month,month_year,source)
+ECHO_dup
+
+dat<-left_join(CT_dup, ECHO_dup, by = 'key_2', suffix = c(".CTDEEP", ".ECHO"))
+dat$facility<-substr(dat$key_2,1,9)
+unique(dat$facility)
+
+ggplot(dat, aes(x=kg_N_TN_per_month.ECHO, y=kg_N_TN_per_month.CTDEEP,col=facility)) +
+  geom_point() +
+  geom_abline(slope=1, col='red',linetype='dashed')+
+  ylab('CTDEEP monthly total N loads (kg N/month)')+
+  xlab('ECHO monthly total N loads (kg N/month)')+
+  geom_hline(yintercept=0)+
+  geom_vline(xintercept=0)+
+  xlim(0,40000)+
+  ggtitle('Comparison of monthly load data by source')+
+  theme_minimal()
+
+dat$abs_CTDEEP_minus_ECHO<-abs(dat$kg_N_TN_per_month.CTDEEP-dat$kg_N_TN_per_month.ECHO)
+dat$CTDEEP_minus_ECHO<-dat$kg_N_TN_per_month.CTDEEP-dat$kg_N_TN_per_month.ECHO
+
+summary(dat$CTDEEP_minus_ECHO)
+
