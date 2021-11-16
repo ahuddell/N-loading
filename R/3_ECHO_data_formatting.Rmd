@@ -24,7 +24,7 @@ library(sf)
 
 col_specifications<-('ccffffffffffddff') #compact string to specify column types
 
-dat<-read_csv(file=here("data","Echo_LIS_complete_data.csv"), 
+dat<-read_csv(file=here("data","Echo_LIS_complete_data_bowery_added.csv"), 
                      col_types = col_specifications)
 
 dat<-distinct(dat) #remove a few duplicate rows
@@ -192,7 +192,8 @@ dat <- dat %>%
       "Monthly Avg.",
       "Average Value",
       "Daily Average",
-      "30 Day Arithmetic Mean"
+      "30 Day Arithmetic Mean",
+      "Monthly Average"
     )
   ) %>% #by this line, there are  57,703 keys dropped and 535 permit/outfalls dropped 
   filter(Column %in% c("Quantity Average", "Concentration Average")) %>%
@@ -202,10 +203,15 @@ dat <- dat %>%
   # 
   # #removing specific designators that cause duplicates--always removing the less frequent
   # #code when that is clear
-  filter(!permit_outfall_designator == 'MA0101508_010_Q') %>% #this one was quarterly vs. subweekly
-  filter(!permit_outfall_designator == 'NY0022128_001_M')  %>% #this one I'm not sure, but N was more common
-    filter(!permit_outfall_designator == 'NH0101052_001_B')  %>% #this one was quarterly vs. subweekly 
-   drop_na((value)) #drop rows with no value reported
+  filter(!permit_outfall_designator == 'MA0101508_10_Q') %>% #this one was quarterly vs. subweekly
+  #N seems to be the correct designator for the NYC DEP plants 
+  filter(!permit_outfall_designator == 'NY0022128_1_M')  %>% #this one I'm not sure, but N was more common
+  filter(!permit_outfall_designator == 'NY0026131_1_M')  %>% #this one I'm not sure, but N was more common 
+    filter(!permit_outfall_designator == 'NY0026204_1_M')  %>% #this one I'm not sure, but N was more common 
+  filter(!permit_outfall_designator == 'NY0026239_1_M')  %>% #this one I'm not sure, but N was more common 
+
+  filter(!permit_outfall_designator == 'NH0101052_1_B')  %>% #this one was quarterly vs. subweekly 
+  drop_na((value)) #drop rows with no value reported
 
 
 
@@ -214,8 +220,8 @@ dat$Units <- droplevels(dat)$Units # dropping unused levels
 dat$`Statistical Base Long Desc` <- droplevels(dat)$`Statistical Base Long Desc` #dropping unused levels 
 dat$Designator <- droplevels(dat)$Designator # dropping unused levels 
 
-length(unique(as.character(dat$permit_outfall))) #220 permit/outfalls
-length(levels(as.factor(dat$key))) #46,661 keys
+length(unique(as.character(dat$permit_outfall))) #212 permit/outfalls
+length(levels(as.factor(dat$key))) #43,297 keys
 
 
 ```
@@ -285,8 +291,8 @@ dat <- dat %>% mutate(
 
 
 ```
-Next, we reduce the number of nitrogen to the following: total nitrogen "TN",
-organic nitrogen "ON", ammonia "NH3", nitrite "NO2", nitrate "NO3", and inorganic N "IN".
+Next, we reduce the number of nitrogen to the following: total nitrogen "TN", organic N "ON",
+total Kjeldahl nitrogen "TKN", ammonia "NH3", nitrite "NO2", nitrate "NO3", and NO2NO3 for nitrate and nitrite combined.
 We reduce the flow parameters to the following: flow rate 'flow_rate", 
 maximum flow rate "flow_max_24h", total flow "flow_total", and dry flow "flow_dry".
 
@@ -411,7 +417,7 @@ N_load<- dat %>%
 #check if there are duplicates per key and one parameter
 dup<-N_load %>%
   group_by(key)%>%
-  filter(param_simple=="TN") %>%
+  filter(param_simple=="NH3") %>%
   tally() %>%
   arrange(desc(n))
 dup
@@ -430,33 +436,33 @@ N_load_a<-N_load %>%
          kg_N_NO3NO2_per_month=NO3NO2,
          kg_N_NO3NH3_per_month=NO3NH3,
          kg_N_NO3_per_month=NO3,
-         kg_N_NO2_per_month=NO2,
-) %>%
-  group_by(date,facility,permit,Outfall,key, permit_outfall,state)%>%
-  #for some reason the pivot was not summarizing these columns properly, so 
-  #this manual summary should make the observations tidy
-  summarize(kg_N_TN_per_month=max(kg_N_TN_per_month),
-            kg_N_NH3_per_month=max(kg_N_NH3_per_month),
-            kg_N_TKN_per_month=max(kg_N_TKN_per_month),
-            kg_N_NO3NH3_per_month=max(kg_N_NO3NH3_per_month),
-            kg_N_NO3NO2_per_month=max(kg_N_NO3NO2_per_month),
-            kg_N_NO3_per_month=max(kg_N_NO3_per_month),
-            kg_N_NO2_per_month=max(kg_N_NO2_per_month))
+         kg_N_NO2_per_month=NO2)# %>%
+  # group_by(date,facility,permit,Outfall,key, permit_outfall,state)%>%
+  # #for some reason the pivot was not summarizing these columns properly, so
+  # #this manual summary should make the observations tidy
+  # summarize(kg_N_TN_per_month=max(kg_N_TN_per_month),
+  #           kg_N_NH3_per_month=max(kg_N_NH3_per_month),
+  #           kg_N_TKN_per_month=max(kg_N_TKN_per_month),
+  #           kg_N_NO3NH3_per_month=max(kg_N_NO3NH3_per_month),
+  #           kg_N_NO3NO2_per_month=max(kg_N_NO3NO2_per_month),
+  #           kg_N_NO3_per_month=max(kg_N_NO3_per_month),
+  #           kg_N_NO2_per_month=max(kg_N_NO2_per_month))
 
 names(N_load_a)
 
 dup<-N_load_a %>%
   group_by(key)%>%
   tally() %>%
+  filter(n>2) %>%
   arrange(desc(n))
-dup #there are no more duplicates
+dup #there are 4 duplicates
 
 length(unique(as.character(N_load$key)))
 length(unique(as.character(N_load_a$key))) 
 #there are the same number of rows before and after the pivot
 
 
-length(unique(as.character(N_load_a$permit_outfall))) #75 outfalls included here
+length(unique(as.character(N_load_a$permit_outfall))) #76 outfalls included here
 
 
 ```
@@ -620,16 +626,13 @@ filter(N_load_b, !is.na(kg_N_NO3_per_month) & !is.na(kg_N_NO3NO2_per_month))
 filter(N_load_b, !is.na(kg_N_NO2_per_month) & !is.na(kg_N_NO3NO2_per_month))
 #there are none, so we can add them without double counting
 
+##THIS FUNCTION IS NOT WORKING AND IS DROPPING OUT DATA
 N_load_b$kg_N_sum_per_month <-
   ifelse(
-    !is.na(N_load_b$kg_N_TKN_per_month),
-    (
-      N_load_b$kg_N_TKN_per_month + N_load_b$kg_N_NO3_per_month + N_load_b$kg_N_NO2_per_month + N_load_b$kg_N_NO3NO2_per_month
-    ) ,
-    (
-      N_load_b$kg_N_NH3_per_month + N_load_b$kg_N_NO3_per_month + N_load_b$kg_N_NO2_per_month + N_load_b$kg_N_NO3NO2_per_month 
+    is.na(N_load_b$kg_N_TKN_per_month),
+    (N_load_b$kg_N_NH3_per_month + N_load_b$kg_N_NO3_per_month + N_load_b$kg_N_NO2_per_month + N_load_b$kg_N_NO3NO2_per_month),
+    (N_load_b$kg_N_TKN_per_month + N_load_b$kg_N_NO3_per_month + N_load_b$kg_N_NO2_per_month + N_load_b$kg_N_NO3NO2_per_month)
     )
-  )
 
 
 #remove intermediate columns we no longer need
@@ -681,11 +684,12 @@ N_load_a_1<-N_load_a %>%
   
 N_load_a_1$kg_N_NO2_per_month<-0 #imputing zeroes into the NO2 column to avoid double counting
     
+keys_N_load_a_1<-(N_load_a_1$key)
+
 N_load_a_2<-N_load_a %>%
-  filter(is.na(kg_N_NO2_per_month) & is.na(kg_N_NO3NO2_per_month)) #selecting all other rows to rejoin
+  filter(!key %in% keys_N_load_a_1) #selecting all other rows to rejoin
 
 N_load_a<-rbind(N_load_a_1, N_load_a_2)
-filter(N_load_a, !is.na(kg_N_NO2_per_month) & !is.na(kg_N_NO3NO2_per_month)) #14 rows have both, so we have to subtract NO2 from kg_N_NO3NO2_per_month for those rows
 
 
 N_load_a$kg_N_sum_per_month <-
