@@ -757,13 +757,8 @@ summary(N_load$kg_N_TN_per_month)
 ```{r}
 
 CT<-read_csv(file=here("data","CT_NX_data.csv"))
-<<<<<<< HEAD
-CT<-distinct(CT) #remove a few duplicate rows
-=======
-
 CT<-distinct(CT) #remove a few duplicate rows
 
->>>>>>> 96fb1c40523807e5034d9c697e21eb2fc57f654d
 #formatting CT data to join with rest of ECHO data
 CT_summary<-CT %>%
   mutate(date=mdy(date)) %>%
@@ -776,16 +771,15 @@ CT_summary<-CT %>%
   summarise(kg_N_TN_per_month=sum(kg_N_TN_per_period)) %>%
   mutate(permit_outfall=paste0(permit,"_",Outfall)) %>%
   mutate(key = paste0(permit, "_", Outfall, "_", month_year))
-<<<<<<< HEAD
 
->>>>>>> 96fb1c40523807e5034d9c697e21eb2fc57f654d
 names(CT)
 permit_facility<-CT %>%
   group_by(permit,facility) %>%
   summarize(permit = first(permit),
             facility = first(facility))
-<<<<<<< HEAD
+
 CT_summary<-left_join(CT_summary, permit_facility)
+
 N_load<- N_load %>%
   mutate(month_year=format(as.Date(date), "%Y-%m")) %>%
   select(-date)
@@ -793,7 +787,7 @@ N_load$Outfall<-as.character(N_load$Outfall)
 CT_summary$Outfall<-as.character(CT_summary$Outfall)
 #join locations based on permit number and outfall number
 N_load_CT_join <- rbind(N_load, CT_summary)
-=======
+
 
 CT_summary<-left_join(CT_summary, permit_facility)
 
@@ -810,7 +804,6 @@ CT_summary$Outfall<-as.character(CT_summary$Outfall)
 #join locations based on permit number and outfall number
 N_load_CT_join <- rbind(N_load, CT_summary)
 
->>>>>>> 96fb1c40523807e5034d9c697e21eb2fc57f654d
 dim(N_load_CT_join) #43681
 dim(N_load) #25,745
 dim(CT_summary) #17,936
@@ -861,9 +854,7 @@ missing_latitude<-N_load_out %>% filter(is.na(LATITUDE83)) %>%
   group_by(permit_outfall)%>%
   summarize(LATITUDE83=first(LATITUDE83))
 missing_latitude #7 outfalls missing coordinates
-<<<<<<< HEAD
 
->>>>>>> 96fb1c40523807e5034d9c697e21eb2fc57f654d
 #impute missing values based on other outfalls from same permit
 N_load_out<-N_load_out %>% 
   mutate(impute_lat= case_when(
@@ -882,10 +873,8 @@ N_load_out<-N_load_out %>%
     permit_outfall== 'NY0023311_2' ~ -73.227722,
     permit_outfall== 'NY0206644_2' ~ -73.121139,
     permit_outfall== 'NY0206644_3' ~ -73.073139))
-<<<<<<< HEAD
-=======
 
->>>>>>> 96fb1c40523807e5034d9c697e21eb2fc57f654d
+
 missing_latitude<-N_load_out %>% filter(is.na(LATITUDE83)) %>%
   group_by(permit_outfall)%>%
   summarize(impute_lat=first(impute_lat))
@@ -965,10 +954,7 @@ missing_huc8<-dat_join %>% filter(is.na(huc8)) %>%
             LATITUDE83=first(LATITUDE83),
             LONGITUDE83=first(LONGITUDE83))
 missing_huc8 
-<<<<<<< HEAD
-=======
 
->>>>>>> 96fb1c40523807e5034d9c697e21eb2fc57f654d
 impute_hucs<-data.frame(
   permit_outfall = c(
     'NY0026131_1',
@@ -994,13 +980,9 @@ impute_hucs<-data.frame(
     'Chicopee River', 
     'Ashuelot River-Connecticut River',
     'Ammonoosuc River-Connecticut River')) 
-<<<<<<< HEAD
-dat_join<- left_join(dat_join, impute_hucs, by = 'permit_outfall')
-=======
 
 dat_join<- left_join(dat_join, impute_hucs, by = 'permit_outfall')
 
->>>>>>> 96fb1c40523807e5034d9c697e21eb2fc57f654d
 N_load_out <- dat_join %>%
   mutate(name =
            case_when(
@@ -1014,10 +996,7 @@ N_load_out <- dat_join %>%
            ))
 #check for NA's in huc8s
 sum(is.na(dat_join$name))
-<<<<<<< HEAD
-=======
 
->>>>>>> 96fb1c40523807e5034d9c697e21eb2fc57f654d
 write_csv(dat_join,
           file = here("data", "ECHO_data_clean.csv"))
 
