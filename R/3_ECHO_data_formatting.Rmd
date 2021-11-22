@@ -560,7 +560,6 @@ flow_cleaned<-rbind(flow_50,flow_56,flow_76,N_params)
 
 #review duplicates
 dups2<-flow_cleaned %>%
- # filter(is.na(kg_per_month)) %>%
   group_by(key, param_simple)%>%
   drop_na((value)) %>%
   tally() %>%
@@ -575,6 +574,7 @@ Calculate loads for keys which do not report loads.
 #subset of data that DO NOT report loads, then
 #pivot wider and then remove columns with only NAs (since some parameter/unit combinations that don't make sense)
 flow_N_concentration <- flow_cleaned %>%
+  select(-permit_freq,-permit_outfall_designator) %>%
   group_by(key) %>%
   filter(any(is.na(kg_per_month))) %>%
    #removing unwanted columns
@@ -597,10 +597,16 @@ flow_N_concentration <- flow_cleaned %>%
               values_from = c(mg_N_per_L, million_L_per_month)) %>%
   select_if(not_all_na) 
 
-
-
 names(flow_N_concentration)
 
+#review duplicates
+dups3<-flow_N_concentration %>%
+  group_by(key)%>%
+  tally() %>%
+  arrange(desc(n))
+dups3 #there are no more duplicates
+
+#this does not always seem to work. see how kg_N_NH3_per_month is not working for key CT0100455_1_2015-11 which has NH3 data
 #calculating N loads
 N_load_b <- flow_N_concentration %>%
   mutate(kg_N_TN_per_month = mg_N_per_L_TN * million_L_per_month_flow_rate) %>%
@@ -619,7 +625,6 @@ select(
     -million_L_per_month_flow_rate,
     -stat
   ) 
-
 
 #check if any rows contain both NO3 or NO2 and NO3NO2 before we combine them
 filter(N_load_b, !is.na(kg_N_NO3_per_month) & !is.na(kg_N_NO3NO2_per_month))
@@ -750,7 +755,26 @@ summary(N_load$kg_N_TN_per_month)
 #Format and add in the CT data
 
 ```{r}
-# 
+# data quality issues observed when comparing ECHO CT data to CTDEEP data:
+
+#permits that report many "0s" N concentrations in monitoring location 1, but may be conflated with N loads reported in monitoring location C, which is not considered effluent but rather, "Nitrogen, Removal Complete"
+#CT0100081 
+#
+
+
+#these permits seems to just report lots of zeros 
+#CT0100315
+#CT0100641
+#CT0101087
+#CT0101222
+#CT0101273
+#CT0101320
+#CT0101681
+#CT0101788
+
+#this permit often missing flow
+#CT0100714
+
 # CT<-read_csv(file=here("data","CT_NX_data.csv"))
 # 
 # CT<-distinct(CT) #remove a few duplicate rows
@@ -903,6 +927,8 @@ missing_huc8<-dat_join %>% filter(is.na(huc8)) %>%
             LATITUDE83=first(LATITUDE83),
             LONGITUDE83=first(LONGITUDE83))
 missing_huc8
+
+
 #there are 10 outfalls with missing HUC8 assignments
 write_csv(missing_huc8,
           file = here("ECHO_missing_huc8.csv"))
