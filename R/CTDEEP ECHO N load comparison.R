@@ -7,6 +7,9 @@ library(here)
 ECHO_all<-read_csv(file = here("data", "ECHO_data_clean.csv"))
 
 CT<-read_csv(file=here("data","CT_NX_data.csv"))
+CT$key<-paste0(CT$facility,"_",CT$date)
+CT$duplicated<-duplicated(CT)
+
 CT<-distinct(CT) #remove a few duplicate rows
 
 #editing the three outliers 
@@ -98,11 +101,13 @@ ECHO_dup<-ECHO_all %>%
   select(key_2, kg_N_TN_per_month,month_year,source)
 ECHO_dup
 
-dat<-left_join(CT_dup, ECHO_dup, by = 'key_2', suffix = c(".CTDEEP", ".ECHO"))
-dat$facility<-substr(dat$key_2,1,9)
-unique(dat$facility)
+dup_dat<-left_join(CT_dup, ECHO_dup, by = 'key_2', suffix = c(".CTDEEP", ".ECHO"))
+dup_dat$permit<-substr(dup_dat$key_2,1,9)
+unique(dup_dat$permit)
 
-ggplot(dat, aes(x=kg_N_TN_per_month.ECHO, y=kg_N_TN_per_month.CTDEEP,col=facility)) +
+
+ggplot(dup_dat, aes(x=kg_N_TN_per_month.ECHO, y=kg_N_TN_per_month.CTDEEP,
+                    col=permit)) +
   geom_point() +
   geom_abline(slope=1, col='red',linetype='dashed')+
   ylab('CTDEEP monthly total N loads (kg N/month)')+
@@ -110,11 +115,50 @@ ggplot(dat, aes(x=kg_N_TN_per_month.ECHO, y=kg_N_TN_per_month.CTDEEP,col=facilit
   geom_hline(yintercept=0)+
   geom_vline(xintercept=0)+
   xlim(0,40000)+
-  ggtitle('Comparison of monthly load data by source')+
+  ggtitle('Comparison of monthly load data by data source')+
   theme_minimal()
 
-dat$abs_CTDEEP_minus_ECHO<-abs(dat$kg_N_TN_per_month.CTDEEP-dat$kg_N_TN_per_month.ECHO)
-dat$CTDEEP_minus_ECHO<-dat$kg_N_TN_per_month.CTDEEP-dat$kg_N_TN_per_month.ECHO
 
-summary(dat$CTDEEP_minus_ECHO)
 
+dup_dat$abs_CTDEEP_minus_ECHO<-abs(dup_dat$kg_N_TN_per_month.CTDEEP-dup_dat$kg_N_TN_per_month.ECHO)
+dup_dat$CTDEEP_minus_ECHO<-dup_dat$kg_N_TN_per_month.CTDEEP-dup_dat$kg_N_TN_per_month.ECHO
+
+dup_dat %>% 
+  filter(abs_CTDEEP_minus_ECHO<100000)%>%
+  ggplot(aes(x=abs_CTDEEP_minus_ECHO))+
+  geom_histogram()+
+  theme_minimal()+
+  xlab('Absolute value of differences between monthly total N loads (kg N/month) from ECHO and CTDEEP')
+
+summary(dup_dat$CTDEEP_minus_ECHO)
+
+dup_dat %>% 
+  filter(kg_N_TN_per_month.ECHO==0) %>%
+  group_by(permit) %>%
+  tally()
+
+dup_dat %>% 
+  filter(kg_N_TN_per_month.ECHO==0) %>%
+  group_by(permit) %>%
+  tally() %>%
+  summarize(sum(n)) #268 observations with "0" N load
+
+# data quality issues observed when comparing ECHO CT data to CTDEEP data:
+
+#permits that report many "0s" N concentrations in monitoring location 1, but may be conflated with N loads reported in monitoring location C, which is not considered effluent but rather, "Nitrogen, Removal Complete"
+#CT0100081 
+#
+
+
+#these permits seems to just report lots of zeroes 
+#CT0100315
+#CT0100641
+#CT0101087
+#CT0101222
+#CT0101273
+#CT0101320
+#CT0101681
+#CT0101788
+
+#this permit often missing flow
+#CT0100714
