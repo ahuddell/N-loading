@@ -23,10 +23,10 @@ library(here)
 
 dat<-read_csv(file=here('data','PCS_LIS_watershed_data.csv'))
 
-# #read in CT data from N exchange program
-# CT<-read_csv(file=here("data","CT_NX_data.csv"))
-# CT<-distinct(CT) #remove a few duplicate rows
-# CT_permits<-unique(CT$permit)
+#read in CT data from N exchange program
+CT<-read_csv(file=here("data","CT_NX_data.csv"))
+CT<-distinct(CT) #remove a few duplicate rows
+CT_permits<-unique(CT$permit)
 
 
 #join by location and SIC code to filter out SIC codes other than sewarage systems, fish hatcheries, and paper mills 
@@ -141,10 +141,25 @@ dat<- dat %>%
   #omitting this parameter because we don't know what it means, but most
   filter(!param=='50047 - Flow, Maximum During 24 Hr Period') %>%
   filter(!param=='00059 - Flow Rate, Instantaneous') %>%
-  filter(!param=='51061 - Flow (dry weather)')# %>% #there are only a few observations of this and none had data we could use
-  # filter(!permit %in% CT_permits) #this line removes the CT waste water treatment plants because we will use CTDEEP data for those
-  # 
+  filter(!param=='51061 - Flow (dry weather)') %>% #there are only a few observations of this and none had data we could use
+  mutate(permit_outfall_designator_key=paste0(permit_outfall_designator,key)) %>%
+  filter(!permit_outfall_designator_key=='NY0026841_1_MNY0026841_1_2004-05-31' ) %>% #the M designator causes a duplicate this month
+  filter(!permit_outfall_designator_key=='NY0026841_1_MNY0026841_1_2004-06-30' ) %>% #the M designator causes a duplicates this month
+  mutate(key_quant_avg=paste0(key,quant_avg)) %>%
+  filter(!key_quant_avg=='CT0100081_1_1989-12-311.83') %>% #filtering out one duplicate row
+  select(-key_quant_avg, -permit_outfall_designator_key) %>%
+  filter(!permit %in% CT_permits) %>%#this line removes the CT waste water treatment plants because we will use CTDEEP data for those
+  
   # #add in all of the specific cases we need to omit to eliminate duplicates
+  mutate(permit_outfall_ML=paste0(permit_outfall, `Monitoring Location (MLOC)`)) %>%
+  filter(!permit_outfall_ML == 'NY0026697_1Y')  %>%  #there are duplicates for ML 1 and Y, choosing 1
+  filter(!permit_outfall_ML == 'NY0026701_1Y')  %>%  #there are duplicates for ML 1 and Y, choosing 1
+  filter(!permit_outfall_ML == 'NY0026719_1Y')  %>%  #there are duplicates for ML 1 and Y, choosing 1
+  filter(!permit_outfall_ML == 'NY0026786_1Y')  %>%  #there are duplicates for ML 1 and Y, choosing 1
+
+  
+    select(-permit_outfall_ML) 
+
   # filter(!permit_outfall_designator == 'CT0003824_001_A')  %>%  #this one I'm not sure, but for ECHO data we chose C; here it seems the measurements vary across designators more from month to month
   # filter(!permit_outfall_designator == 'CT0003824_001_B')  %>%  #this one I'm not sure, but for ECHO data we chose C; here it seems the measurements vary across designators more from month to month
   # filter(!permit_outfall_designator == 'CT0003824_001_D')  %>%  #this one I'm not sure, but for ECHO data we chose C; here it seems the measurements vary across designators more from month to month
@@ -392,7 +407,7 @@ dup<-keys_with_N %>%
   group_by(key, param_simple)%>%
   tally() %>%
   arrange(desc(n))
-dup #there are lots of flow rate duplicates from multiple parameters reported for the same date, but we will select flow parameters-- 50050 first, then 00056, then 74076, then 0058
+dup #there are no duplicates
 
 dup<-keys_with_N %>%
   group_by(key) %>%
@@ -455,6 +470,7 @@ flow_cleaned <- flow_cleaned %>%
     !c('Monitoring Dt (MVDT)',
         'Discharge Designator (DRID)',
        'Parameter Cd (PRAM)',
+       'param',
        'Monitoring Location (MLOC)',
        '#MULTIVALUE',
        'Meas Quant Maxm (MQMX)',
@@ -464,18 +480,41 @@ flow_cleaned <- flow_cleaned %>%
        'Meas Conc Maxm (MCMX)...15',
        'Meas Conc Maxm (MCMX)...16',
        'Conc Unit Cd (LCUC)',
-       'Conc Unit Cd Desc (LCUCD)' )
+       'Conc Unit Cd Desc (LCUCD)',
+       'quant_avg',
+       'permit_outfall_designator',
+       'conc_avg'
+       )
   )
 
+#review duplicates
+dups3<-flow_cleaned %>%
+  group_by(key)%>%
+  tally() %>%
+  arrange(desc(n))
+dups3 #there are some duplicates in different rows
+
+```
+
+Calculate loads for keys which do not report loads.
+
+```{r}
 #subset of data that DO NOT report loads, then
 #pivot wider and then remove columns with only NAs (since some parameter/unit combinations that don't make sense)
 
 flow_N_concentration <- flow_cleaned %>%
   group_by(key) %>%
-  #filter(any(is.na(kg_per_month))) %>%
-   pivot_wider(names_from = param_simple,
+  pivot_wider(names_from = param_simple,
               values_from = c(mg_N_per_L, million_L_per_month)) %>%
   select_if(not_all_na)
+
+#review duplicates
+dups3<-flow_N_concentration %>%
+  group_by(key)%>%
+  tally() %>%
+  arrange(desc(n))
+dups3 #there are no more duplicates
+
 
 #calculating N loads
 N_load_b <- flow_N_concentration %>%
@@ -499,6 +538,7 @@ N_load_b <- flow_N_concentration %>%
 
 #combine N columns in N_load_b to standardize and join dataframes
 names(N_load_b)
+
 
 #check if any rows contain both NO3 or NO2 and NO3NO2 before we combine them
 filter(N_load_b, !is.na(kg_N_NO3_per_month) & !is.na(kg_N_NO3NO2_per_month))
@@ -544,10 +584,18 @@ N_load_b$kg_N_TN_per_month <-
 
 #remove N sum column
 N_load_b<- N_load_b %>%
-  select(-kg_N_sum_per_month, -permit_outfall_designator)
+  select(-kg_N_sum_per_month)
 
 names(N_load_b)
 length(unique(as.character(N_load_b$permit_outfall))) #203 outfalls included here
+
+
+#review duplicates
+dups4<-N_load_b %>%
+  group_by(key)%>%
+  tally() %>%
+  arrange(desc(n))
+dups4 #there are no more duplicates
 
 
 #for N_load_a
@@ -590,6 +638,7 @@ N_load_a<- N_load_a %>%
   select(-kg_N_sum_per_month)
 names(N_load_a)
 
+
 #combine dataframes
 N_load<-rbind(N_load_a,N_load_b)
 N_load<-drop_na(N_load,kg_N_TN_per_month) #dropping NA values 
@@ -598,6 +647,10 @@ length(unique(as.character(N_load$permit_outfall))) #23 outfalls with/without lo
 length(unique(as.character(N_load$key))) #2,454 keys
 
 summary(N_load$kg_N_TN_per_month)
+
+N_load<- N_load %>%
+  mutate(month_year=format(as.Date(date), "%Y-%m")) %>%
+  select(-date)
 
 ```
 
@@ -643,6 +696,82 @@ summary(N_load_out$LATITUDE83) #268 missing values
 missing_latitude<-N_load_out %>% filter(is.na(LATITUDE83)) %>%
   group_by(permit_outfall)%>%
   summarize(LATITUDE83=first(LATITUDE83))
+missing_latitude
+
+
+#impute missing values based on other outfalls from same permit
+N_load_out<-N_load_out %>% 
+  mutate(impute_lat= case_when(
+    permit_outfall=='MA0100889_FAC' ~ 42.190537,
+    permit_outfall=='MA0101281_1' ~ 42.561923,
+    permit_outfall== 'MA0101613_1'~	42.085814,	            
+    permit_outfall== 'MA0101681_2'~	42.404149,	            
+    permit_outfall== 'MA0101818_2'~	42.30248,	            
+    permit_outfall== 'MA0110264_1'~	42.606111,
+    permit_outfall=='NH0000744_12' ~ 44.323049,
+    permit_outfall=='NH0000744_13' ~ 44.323049,
+    permit_outfall=='NH0000744_14' ~ 44.323049,
+    permit_outfall=='NH0000744_15' ~ 44.323049,
+    permit_outfall=='NH0000744_16' ~ 44.323049,
+    permit_outfall=='NH0000744_17' ~ 44.323049,
+    permit_outfall=='NH0000744_18' ~ 44.323049,
+    permit_outfall=='NH0000744_19' ~ 44.323049,
+    permit_outfall=='NH0000744_20' ~ 44.323049,
+    permit_outfall=='NH0000744_22' ~ 44.323049,
+    permit_outfall=='NH0000744_23' ~ 44.323049,
+    permit_outfall=='NH0000744_24' ~ 44.323049,
+    permit_outfall== 'NY0021750_2' ~ 40.948583,	
+    permit_outfall== 'NY0206644_2' ~ 40.924472)) %>%
+   mutate(impute_lon= case_when(
+    permit_outfall=='MA0100889_FAC' ~ -72.250278,
+    permit_outfall=='MA0101281_1'~ -72.845629,
+    permit_outfall== 'MA0101613_1' ~	-72.584513,
+    permit_outfall== 'MA0101681_2' ~	-73.2412,	            
+    permit_outfall== 'MA0101818_2' ~ -72.607846,
+    permit_outfall== 'MA0110264_1' ~	-72.534861,
+    permit_outfall=='NH0000744_12' ~ -71.560259,
+    permit_outfall=='NH0000744_13' ~ -71.560259,
+    permit_outfall=='NH0000744_14' ~ -71.560259,
+    permit_outfall=='NH0000744_15' ~ -71.560259,
+    permit_outfall=='NH0000744_16' ~ -71.560259,
+    permit_outfall=='NH0000744_17' ~ -71.560259,
+    permit_outfall=='NH0000744_18' ~ -71.560259,
+    permit_outfall=='NH0000744_19' ~ -71.560259,
+    permit_outfall=='NH0000744_20' ~ -71.560259,
+    permit_outfall=='NH0000744_22' ~ -71.560259,
+    permit_outfall=='NH0000744_23' ~ -71.560259,
+    permit_outfall=='NH0000744_24' ~ -71.560259,
+    permit_outfall== 'NY0021750_2' ~ -73.075639,
+    permit_outfall== 'NY0206644_2' ~ -73.121139))
+	
+
+#correcting one point that falls outside of LIS watershed
+N_load_out$LATITUDE83<-if_else(N_load_out$permit_outfall== 'MA0101214_1', 42.571367,N_load_out$LATITUDE83)
+N_load_out$LONGITUDE83<-if_else(N_load_out$permit_outfall== 'MA0101214_1', -72.598121,N_load_out$LONGITUDE83)
+
+
+    
+missing_latitude<-N_load_out %>% filter(is.na(LATITUDE83)) %>%
+  group_by(permit_outfall)%>%
+  summarize(impute_lat=first(impute_lat))
+missing_latitude #6 outfalls missing coordinates
+N_load_out <- N_load_out %>%
+  mutate(LATITUDE83 =
+           case_when(
+             is.na(LATITUDE83) ~ impute_lat,
+             !is.na(LATITUDE83) ~LATITUDE83
+           )) %>%
+   mutate(LONGITUDE83 =
+           case_when(
+             is.na(LONGITUDE83) ~ impute_lon,
+             !is.na(LONGITUDE83) ~LONGITUDE83
+           ))
+missing_latitude<-N_load_out %>% filter(is.na(LATITUDE83)) %>%
+  group_by(permit_outfall)%>%
+  summarize(impute_lat=first(impute_lat))
+missing_latitude #now no more points are missing
+  
+
 
 ```
 
@@ -693,9 +822,83 @@ missing_huc8<-dat_join %>% filter(is.na(huc8)) %>%
             LONGITUDE83=first(LONGITUDE83))
 missing_huc8
 
-#there are 5 outfalls with missing HUC8 assignments
-write_csv(missing_huc8,
-          file = here("PCS_missing_huc8.csv"))
+
+impute_hucs<-data.frame(
+  permit_outfall = c(
+    'NY0026131_1',
+    'NY0026204_1',
+    'NY0026701_1',
+    'NY0027073_1',
+    'NY0206644_2',
+    'NY0021750_2',
+    'NH0000744_12',
+    'NH0000744_13',
+    'NH0000744_14',
+    'NH0000744_15',
+    'NH0000744_16',
+    'NH0000744_17',
+    'NH0000744_18',
+    'NH0000744_19',
+    'NH0000744_20',
+    'NH0000744_23',
+    'NH0000744_24',
+    'MA0100889_FAC',
+    'MA0101214_1',
+    'MA0101281_1',
+    'MA0101613_1',
+    'MA0101681_2',
+    'MA0101818_2',
+    'MA0110264_1',
+    'NH0000744_22'
+    ),
+  impute_name = c(
+    'East River',
+    'East River',
+    'Long Island Sound',
+    'East River',
+    'Long Island Sound',
+    'Long Island Sound',
+    'Ammonoosuc River-Connecticut River',
+    'Ammonoosuc River-Connecticut River',
+    'Ammonoosuc River-Connecticut River',
+    'Ammonoosuc River-Connecticut River',
+    'Ammonoosuc River-Connecticut River',
+    'Ammonoosuc River-Connecticut River',
+    'Ammonoosuc River-Connecticut River',
+    'Ammonoosuc River-Connecticut River',
+    'Ammonoosuc River-Connecticut River',
+    'Ammonoosuc River-Connecticut River',
+    'Ammonoosuc River-Connecticut River',
+    'Chicopee River',
+    'Deerfield River',
+    'Deerfield River',
+    'Outlet Connecticut River',
+    'Housatonic',
+    'Ashuelot River-Connecticut River',
+    'Ashuelot River-Connecticut River',
+    'Ammonoosuc River-Connecticut River'
+    )) 
+
+dat_join<- left_join(dat_join, impute_hucs, by = 'permit_outfall')
+
+dat_join <- dat_join %>%
+  mutate(name =
+           case_when(
+             is.na(name) ~ impute_name,
+             !is.na(name) ~name
+           )) %>%
+   mutate(name =
+           case_when(
+             is.na(name) ~ impute_name,
+             !is.na(name) ~name
+           ))
+
+missing_huc8<-dat_join %>% filter(is.na(name)) %>%
+  group_by(permit_outfall)%>%
+  summarize(name=first(name),
+            LATITUDE83=first(LATITUDE83),
+            LONGITUDE83=first(LONGITUDE83))
+missing_huc8 #none are missing now
 
 write.csv(dat_join,
           file = here("data", "PCS_data_clean.csv"),
