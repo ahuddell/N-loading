@@ -8,7 +8,10 @@ library(astsa)
 #load both datasets
 PCS_all<-read_csv(file=here("data","PCS_data_clean.csv"))
 ECHO_all<-read_csv(file = here("data", "ECHO_data_clean.csv"))
-# ECHO_all$month_year<-my(ECHO_all$date)
+
+PCS_all$month_year<-ym(PCS_all$month_year)
+ECHO_all$month_year<-ym(ECHO_all$month_year)
+
 
 
 #organizing keys
@@ -27,22 +30,22 @@ dup_keys
 PCS_dup<-PCS_all %>% 
   filter(key %in% unlist(dup_keys)) %>%
   mutate(source=rep('PCS'))%>%
-  select(key, kg_N_TN_per_month,date,source)
+  select(key, kg_N_TN_per_month,month_year,source)
 PCS_dup
 
 ECHO_dup<-ECHO_all %>% 
   filter(key %in% unlist(dup_keys)) %>%
   mutate(source=rep('ECHO')) %>%
-  select(key, kg_N_TN_per_month,date,source)
+  select(key, kg_N_TN_per_month,month_year,source)
 ECHO_dup
 
 dat<-left_join(PCS_dup, ECHO_dup, by = 'key', suffix = c(".PCS", ".ECHO"))
 
 
 
-# ggplot(dat, aes(x=kg_N_TN_per_month.ECHO, y=kg_N_TN_per_month.PCS)) +
-#   geom_point() +
-#   geom_abline(slope=1)
+ggplot(dat, aes(x=kg_N_TN_per_month.ECHO, y=kg_N_TN_per_month.PCS)) +
+  geom_point() +
+  geom_abline(slope=1)
 
 #everything looks good
 dat$ECHO_minus_PCS<-dat$kg_N_TN_per_month.ECHO-
@@ -50,7 +53,7 @@ dat$ECHO_minus_PCS<-dat$kg_N_TN_per_month.ECHO-
 
 difference<-filter(dat, ECHO_minus_PCS>1 | ECHO_minus_PCS < -1)
 difference
-#there are no differences
+#there some important differences
 
 #plot observations by permit/outfall
 ECHO_all %>% 
@@ -76,28 +79,91 @@ impute_value<-as.numeric(ECHO_all %>% filter(permit_outfall=='CT0100323_1' & dat
   filter(!date=='1999-08-31') %>% #removing problematic date
   summarize(mean(kg_N_TN_per_month)))
 
-#editing the three outliers 
-ECHO_all$kg_N_TN_per_month<-ifelse(
-      ECHO_all$key == 'CT0100323_1_1999-08-31', impute_value, ECHO_all$kg_N_TN_per_month)
-ECHO_all$kg_N_TN_per_month<-ifelse(
-  ECHO_all$key == 'CT0100447_1_2005-02-28', ECHO_all$kg_N_TN_per_month/1000, ECHO_all$kg_N_TN_per_month) #flow looked like it was 1000X too large
+#editing the three outliers
+# ECHO_all$kg_N_TN_per_month<-ifelse(
+#       ECHO_all$key == 'CT0100323_1_1999-08-31', impute_value, ECHO_all$kg_N_TN_per_month)
+# ECHO_all$kg_N_TN_per_month<-ifelse(
+#   ECHO_all$key == 'CT0100447_1_2005-02-28', ECHO_all$kg_N_TN_per_month/1000, ECHO_all$kg_N_TN_per_month) #flow looked like it was 1000X too large
 ECHO_all$kg_N_TN_per_month<-ifelse(
   ECHO_all$key == 'NY0026204_1_2015-08-31', ECHO_all$kg_N_TN_per_month/10, ECHO_all$kg_N_TN_per_month) #load looked like it was 10X too large
-ECHO_all$kg_N_TN_per_month<-ifelse(
-  ECHO_all$key == 'CT0100447_1_2005-02-28', ECHO_all$kg_N_TN_per_month/1000, ECHO_all$kg_N_TN_per_month) #flow looked like it was 1000X too large
+# ECHO_all$kg_N_TN_per_month<-ifelse(
+#   ECHO_all$key == 'CT0100447_1_2005-02-28', ECHO_all$kg_N_TN_per_month/1000, ECHO_all$kg_N_TN_per_month) #flow looked like it was 1000X too large
+# ECHO_all$kg_N_TN_per_month<-ifelse(
+#   ECHO_all$key == 'CT0100455_1_2018-04-30', ECHO_all$kg_N_TN_per_month/1000, ECHO_all$kg_N_TN_per_month) #flow looked like it was 1000X too large
 
-#Broken, need to fix:
-ECHO_all<- ECHO_all %>%
-  mutate(case_when (permit == 'CT0100617' &
-           date>='2000-05-31' &
-           date<='2005-11-30' ~ kg_N_TN_per_month*10^6)) #the flow was entered as gal/day instead of million gal/day
+#editing the three outliers 
+PCS_all$kg_N_TN_per_month<-ifelse(
+  PCS_all$key == 'MA0110264_2_2003-11-30',
+  PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
+
+PCS_all$kg_N_TN_per_month<-ifelse(
+  PCS_all$key == 'NH0001180_1_1991-09-30',
+  PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
+
+PCS_all$kg_N_TN_per_month<-ifelse(
+  PCS_all$key == 'NH0001180_1_1992-04-30',
+  PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
+
+PCS_all$kg_N_TN_per_month<-ifelse(
+  PCS_all$key == 'NH0001180_1_1999-11-30',
+  PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
+
+PCS_all$kg_N_TN_per_month<-ifelse(
+  PCS_all$key == 'NH0001180_1_1991-07-31',
+  PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
+
+PCS_all$kg_N_TN_per_month<-ifelse(
+  PCS_all$key == 'NH0001180_1_1991-08-31',
+  PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
+
+PCS_all$kg_N_TN_per_month<-ifelse(
+  PCS_all$key == 'NH0001180_1_1991-12-31',
+  PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
+
+PCS_all$kg_N_TN_per_month<-ifelse(
+  PCS_all$key == 'NH0001180_1_1991-11-30',
+  PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
+
+PCS_all$kg_N_TN_per_month<-ifelse(
+  PCS_all$key == 'NH0001180_1_1991-10-31',
+  PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
+
+PCS_all$kg_N_TN_per_month<-ifelse(
+  PCS_all$key == 'NH0001180_1_1992-03-31',
+  PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
+
+PCS_all$kg_N_TN_per_month<-ifelse(
+  PCS_all$key == 'NH0001180_1_1991-06-30',
+  PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
+
+PCS_all$kg_N_TN_per_month<-ifelse(
+  PCS_all$key == 'NH0001180_1_1992-05-31',
+  PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
 
 
-#need to check that the amounts are similar from 2002-2021
-ECHO_all %>%
-  filter(permit == 'CT0100617') %>%
-  ggplot(aes(x=date,y=kg_N_TN_per_month))+
-  geom_point()
+
+
+
+
+#add column identifier (PCS or ECHO) and filter and join data
+PCS_dup<-PCS_all %>% 
+  filter(key %in% unlist(dup_keys)) %>%
+  mutate(source=rep('PCS'))%>%
+  select(key, kg_N_TN_per_month,month_year,source)
+PCS_dup
+
+ECHO_dup<-ECHO_all %>% 
+  filter(key %in% unlist(dup_keys)) %>%
+  mutate(source=rep('ECHO')) %>%
+  select(key, kg_N_TN_per_month,month_year,source)
+ECHO_dup
+
+dat<-left_join(PCS_dup, ECHO_dup, by = 'key', suffix = c(".PCS", ".ECHO"))
+
+ggplot(dat, aes(x=kg_N_TN_per_month.ECHO, y=kg_N_TN_per_month.PCS)) +
+  geom_point() +
+  geom_abline(slope=1)
+#now there's pretty close agreement
 
 
 summary(ECHO_all$kg_N_TN_per_month)
@@ -116,42 +182,41 @@ ECHO_all %>%
 
 #plot through time all together
 ECHO_all %>% 
-  filter(!is.na(kg_N_TN_per_month)) %>%
-  #filter(date>'1992-01-01' & date < '2021-11-01') %>%
-  #filter(kg_N_TN_per_month < 1e6) %>%
-  ggplot(aes(x=date, y=kg_N_TN_per_month)) +
-  #geom_boxplot()+
+ ggplot(aes(x=month_year, y=kg_N_TN_per_month)) +
   geom_point(alpha=.5) +
- # ylim(0,50000)+
   ggtitle('ECHO data')+
   ylab('Monthly TN load (kg N)')#+
- # theme(axis.text.x = element_text(angle = 60, hjust=1))+
-  #scale_x_date(date_breaks =('5 years'))+
-  #facet_wrap(~permit)
 
+##free scales
 #plot through time with permit facet for non CT states
 ECHO_all %>% 
   filter(state!="CT") %>%
-  filter(!is.na(kg_N_TN_per_month)) %>%
-  filter(date>'1992-01-01' & date < '2021-11-01') %>%
-  filter(kg_N_TN_per_month < 1e6) %>%
-  ggplot(aes(x=date, y=kg_N_TN_per_month)) +
-  #geom_boxplot()+
+  ggplot(aes(x=ym(month_year), y=kg_N_TN_per_month)) +
   geom_point(alpha=.5) +
   # ylim(0,50000)+
   ggtitle('ECHO data')+
   ylab('Monthly TN load (kg N)')+
-theme(axis.text.x = element_text(angle = 60, hjust=1))+
-#scale_x_date(date_breaks =('5 years'))+
+scale_x_date(date_breaks =('5 years'))+
 facet_wrap(~facility, scales = "free")
 
 #plot through time with permit facet for CT
 ECHO_all %>% 
   filter(state=="CT") %>%
+  ggplot(aes(x=ym(month_year), y=kg_N_TN_per_month)) +
+  geom_point(alpha=.5) +
+  ggtitle('ECHO data')+
+  ylab('Monthly TN load (kg N)')+
+  theme(axis.text.x = element_text(angle = 60, hjust=1))+
+  scale_x_date(date_breaks =('5 years'))+
+  facet_wrap(~facility, scales = "free")
+
+#fixed scales
+##same plots with same x/y axes
+#plot through time with permit facet for non CT states
+ECHO_all %>% 
+  filter(state!="CT") %>%
   filter(!is.na(kg_N_TN_per_month)) %>%
-  filter(date>'1992-01-01' & date < '2021-11-01') %>%
-  filter(kg_N_TN_per_month < 1e6) %>%
-  ggplot(aes(x=date, y=kg_N_TN_per_month)) +
+  ggplot(aes(x=month_year, y=kg_N_TN_per_month)) +
   #geom_boxplot()+
   geom_point(alpha=.5) +
   # ylim(0,50000)+
@@ -159,35 +224,38 @@ ECHO_all %>%
   ylab('Monthly TN load (kg N)')+
   theme(axis.text.x = element_text(angle = 60, hjust=1))+
   #scale_x_date(date_breaks =('5 years'))+
-  facet_wrap(~facility, scales = "free")
+  facet_wrap(~facility)
 
-unique(ECHO_all$permit_outfall)
-
-NY<-filter(ECHO_all, state=="NY")
-unique(NY$facility)
+#plot through time with permit facet for CT
+ECHO_all %>% 
+  filter(state=="CT") %>%
+  filter(!is.na(kg_N_TN_per_month)) %>%
+  ggplot(aes(x=month_year, y=kg_N_TN_per_month)) +
+  #geom_boxplot()+
+  geom_point(alpha=.5) +
+  # ylim(0,50000)+
+  ggtitle('ECHO data')+
+  ylab('Monthly TN load (kg N)')+
+  theme(axis.text.x = element_text(angle = 60, hjust=1))+
+  #scale_x_date(date_breaks =('5 years'))+
+  facet_wrap(~facility)
 
 #
 PCS_all %>% 
   filter(state!="CT") %>%
   filter(!is.na(kg_N_TN_per_month)) %>%
-  filter(date>'1992-01-01' & date < '2021-11-01') %>%
-  filter(kg_N_TN_per_month < 1e6) %>%
-  ggplot(aes(x=date, y=kg_N_TN_per_month)) +
+  ggplot(aes(x=ym(month_year), y=kg_N_TN_per_month)) +
   #geom_boxplot()+
   geom_point(alpha=.5) +
-  # ylim(0,50000)+
   ggtitle('PCS data')+
   ylab('Monthly TN load (kg N)')+
-  theme(axis.text.x = element_text(angle = 60, hjust=1))+
-  #scale_x_date(date_breaks =('5 years'))+
+  scale_x_date(date_breaks =('5 years'))+
   facet_wrap(~facility, scales = "free")
 
 PCS_all %>% 
   filter(state=="CT") %>%
   filter(!is.na(kg_N_TN_per_month)) %>%
-  filter(date>'1992-01-01' & date < '2021-11-01') %>%
-  filter(kg_N_TN_per_month < 1e6) %>%
-  ggplot(aes(x=date, y=kg_N_TN_per_month)) +
+  ggplot(aes(x=month_year, y=kg_N_TN_per_month)) +
   #geom_boxplot()+
   geom_point(alpha=.5) +
   # ylim(0,50000)+
@@ -212,25 +280,18 @@ PCS_all %>%
 #plot observations by month
 ECHO_all %>% 
   filter(!is.na(kg_N_TN_per_month)) %>%
-  filter(month_year>'1992-01-01' & month_year < '2021-11-01') %>%
-  filter(kg_N_TN_per_month < 1e6) %>%
-  group_by(month(month_year),year(month_year)) %>%
-  summarise(mean(kg_N_TN_per_month, na.rm=T)) %>%
-  ggplot(aes(x=as.factor((month(month_year))), y=kg_N_TN_per_month)) +
+  group_by(month=month(month_year),year=year(month_year)) %>%
+  summarise(mean_kg_N_TN_per_month=mean(kg_N_TN_per_month, na.rm=T)) %>%
+  ggplot(aes(x=as.factor(month), y=mean_kg_N_TN_per_month)) +
   geom_point() +
-  geom_violin()+
-  geom_smooth(method = "loess")+
-  #ylim(c(0,100000))+
+  geom_boxplot(alpha=.4)+
   ggtitle('ECHO data')+
   ylab('Monthly TN load (kg N)')+
-  theme(axis.text.x = element_text(angle = 60, hjust=1))
+  xlab('month')
 
 #plot observations by year
 ECHO_all %>% 
-  filter(!is.na(kg_N_TN_per_month)) %>%
-  filter(month_year>'1992-01-01' & month_year < '2021-11-01') %>%
-  filter(kg_N_TN_per_month < 1e6) %>%
-  group_by(permit_outfall, year=year(month_year))%>%
+ group_by(permit_outfall, year=year(month_year))%>%
   summarize(kg_N_TN_per_yr=sum(kg_N_TN_per_month)) %>%
   ggplot(aes(x=year, y=kg_N_TN_per_yr)) +
   geom_point() +
@@ -257,17 +318,15 @@ lmer1<-lmer(log(kg_N_TN_per_month)~
 summary(lmer1)
 
 
-lm1<-aov(lm(log(ECHO_nonzero$kg_N_TN_per_month)~as.factor(year(ECHO_nonzero$date))))
+lm1<-aov(lm(log(ECHO_nonzero$kg_N_TN_per_month)~as.factor(year(ECHO_nonzero$month_year))))
 TukeyHSD(lm1)
 
 #plot observations by month
 PCS_all %>% 
   filter(!is.na(kg_N_TN_per_month)) %>%
-  ggplot(aes(x=
-               month(date), y=kg_N_TN_per_month)) +
-  geom_boxplot()+
+  ggplot(aes(x= as.factor(month(month_year)), y=kg_N_TN_per_month)) +
+  geom_boxplot(alpha=.4)+
   geom_point() +
-  geom_smooth(method = "loess")+
   ggtitle('PCS data')+
   ylab('Monthly TN load (kg N)')+
   theme(axis.text.x = element_text(angle = 60, hjust=1))
@@ -275,7 +334,7 @@ PCS_all %>%
 #plot observations by year
 PCS_all %>% 
   filter(!is.na(kg_N_TN_per_month)) %>%
-  ggplot(aes(x=year(date), y=kg_N_TN_per_month)) +
+  ggplot(aes(x=year(month_year), y=kg_N_TN_per_month)) +
   geom_point() +
   geom_smooth(method = "loess")+
   ggtitle('PCS data')+
@@ -285,11 +344,113 @@ PCS_all %>%
 hist(PCS_all$kg_N_TN_per_month)
 
 PCS_nonzero<-filter(PCS_all,kg_N_TN_per_month>0)
-summary(lm(log(PCS_nonzero$kg_N_TN_per_month)~month(PCS_nonzero$date)))
+summary(lm(log(PCS_nonzero$kg_N_TN_per_month)~month(PCS_nonzero$month_year)))
 
-summary(lm(log(PCS_nonzero$kg_N_TN_per_month)~year(PCS_nonzero$date)))
+summary(lm(log(PCS_nonzero$kg_N_TN_per_month)~year(PCS_nonzero$month_year)))
+
+# combine PCS and ECHO data-------------------------------------------------------------------------
+
+PCS_join<-PCS_all %>% filter(!key %in% dup_keys) #remove PCS data that also exists in ECHO
+names(PCS_join)
+names(ECHO_all)
+PCS_join<-select(PCS_join,-quant_avg,-conc_avg,-permit_outfall_designator,-param,-days_per_month)
+ECHO_all<-select(ECHO_all,-kg_N_sum_per_month)
+
+dat_joined<-rbind(PCS_join, ECHO_all)
+
+annual_sum<-dat_joined %>%
+  group_by(facility, state,permit_outfall, year=year(month_year)) %>%
+  summarise(kg_N_TN_yr=sum(kg_N_TN_per_month, na.rm = T))
+
+ggplot(annual_sum,aes(x=year,y=kg_N_TN_yr/1000)) +
+  geom_point()+
+  geom_smooth(method = "loess")+
+  ylab('Annual total N load by outfall (Mg/yr)')
+
+filter(annual_sum,state=='CT')%>%
+ggplot(aes(x=year,y=kg_N_TN_yr/1000)) +
+  geom_point()+
+  geom_smooth(method = "loess")+
+  ylab('Annual total N load by outfall (Mg/yr)')+
+  ggtitle('CT facilities only')+
+  facet_wrap(~facility, scales = "free")
+  
+filter(annual_sum,!state=='CT')%>%
+ggplot(aes(x=year,y=kg_N_TN_yr/1000)) +
+    geom_point()+
+    geom_smooth(method = "loess")+
+    ylab('Annual total N load by outfall (Mg/yr)')+
+    ggtitle('Non-CT facilities only')+
+    facet_wrap(~facility, scales = "free")
 
 
+watershed_annual_sum<-dat_joined %>%
+  group_by(watershed=name, year=year(month_year)) %>%
+  summarise(kg_N_TN_yr=sum(kg_N_TN_per_month, na.rm = T))
+
+ggplot(watershed_annual_sum,aes(x=year,y=kg_N_TN_yr/1000)) +
+  geom_point()+
+  geom_smooth(method = "loess")+
+  ylab('Annual total N load by outfall (Mg/yr)')
+
+ggplot(watershed_annual_sum,aes(x=year,y=kg_N_TN_yr/1000)) +
+  geom_point()+
+  geom_smooth(method = "loess")+
+  ylab('Annual total N load by watershed (Mg/yr)')+
+  facet_wrap(~watershed, scales = "free")
+
+# filtering out small sources of N ----------------------------------------
+
+median_loads<-dat_joined %>%
+  group_by(state,permit_outfall) %>%
+  summarise(median_kg_N_TN_mo=median(kg_N_TN_per_month, na.rm = T)) %>%
+  arrange(desc(median_kg_N_TN_mo)) 
+
+
+ 
+# seasons -----------------------------------------------------------------
+
+quarterly_sums<-dat_joined %>%
+  mutate(season= case_when(
+    month(month_year)=='12' ~ 'winter',
+    month(month_year)=='1' ~ 'winter',
+    month(month_year)=='2' ~ 'winter',
+    month(month_year)=='3' ~ 'spring',
+    month(month_year)=='3' ~ 'spring',
+    month(month_year)=='5' ~ 'spring',
+    month(month_year)=='6' ~ 'summer',
+    month(month_year)=='7' ~ 'summer',
+    month(month_year)=='8' ~ 'summer',
+    month(month_year)=='9' ~ 'fall',
+    month(month_year)=='10' ~ 'fall',
+    month(month_year)=='11' ~ 'fall'
+  )) %>%
+  group_by(facility, state,permit_outfall, season) %>%
+  summarise(kg_N_TN_season=sum(kg_N_TN_per_month, na.rm = T))
+
+
+
+ggplot(quarterly_sums, aes(x=season, y=kg_N_TN_season)) +
+  geom_point() +
+  geom_boxplot(alpha=.4)+
+  ggtitle('Seasonal differences through time')+
+  ylab('Seasonal TN load (kg N)')+
+  theme(axis.text.x = element_text(angle = 60, hjust=1))+
+  ylim(0,10000)
+
+
+
+quarterly_sums_nonzero<-filter(quarterly_sums,kg_N_TN_season>0)
+summary(lm(log(quarterly_sums_nonzero$kg_N_TN_season)~as.factor((quarterly_sums_nonzero$season))))
+
+lm1<-aov(lm(log(ECHO_nonzero$kg_N_TN_per_month)~as.factor(month(ECHO_nonzero$month_year))))
+TukeyHSD(lm1)
+
+
+lmer1<-lmer(log(kg_N_TN_per_month)~
+              as.factor(month(month_year)) + 
+              (1|permit_outfall), data=ECHO_nonzero)
+summary(lmer1)
 
 # test for seasonality ----------------------------------------------------
 
@@ -301,8 +462,24 @@ summary(lm(log(PCS_nonzero$kg_N_TN_per_month)~year(PCS_nonzero$date)))
 
 #these commands below are designed for time series of n=1, but I need to figure out how to
 #analyze for the many different time series in our data for each permit/outfall
-# ECHO_ts<-ts(ECHO_all)
-# 
-# diff4 = diff(ECHO_ts, 4)
-# diff1and4 = diff(diff4,1)
-# acf2(diff1and4,24)
+
+
+Chicopee_monthly_totals<-dat_joined %>%
+  filter(name=='Chicopee River') %>%
+  group_by(month_year) %>%
+  summarise(kg_N_TN_month=sum(kg_N_TN_per_month, na.rm = T))
+
+plot(Chicopee_monthly_totals)
+
+Chicopee_monthly_totals_ts<-ts(Chicopee_monthly_totals)
+Chicopee_monthly_totals_ts
+
+diff12=diff(Chicopee_monthly_totals_ts, 12)
+plot(diff12)
+acf2(diff12)
+diff1and12 = diff(diff12, 1) 
+
+diff4 = diff(Chicopee_monthly_totals_ts, 4)
+diff1and4 = diff(diff4,1)
+acf2(diff1and4,24)
+
