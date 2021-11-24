@@ -28,13 +28,6 @@ dup_keys
 
 # combine PCS and ECHO data-------------------------------------------------------------------------
 
-PCS_join<-PCS_all %>% filter(!key %in% dup_keys) #remove PCS data that also exists in ECHO
-names(PCS_join)
-names(ECHO_all)
-PCS_join<-select(PCS_join,-quant_avg,-conc_avg,-permit_outfall_designator,-param,-days_per_month)
-ECHO_all<-select(ECHO_all,-kg_N_sum_per_month)
-
-
 #looking at outliers
 ECHO_all%>%filter(kg_N_TN_per_month>1000000) %>% group_by(key) %>%
   summarize(key=first(key))
@@ -44,23 +37,17 @@ ECHO_all%>%filter(kg_N_TN_per_month>1000000) %>% group_by(key) %>%
 #CT0100447_1_2005-02-28 seems to have entered the flow rate 1000X higher than it should; for parameter 50050 - Flow, in conduit or thru treatment plant
 #NY0026204_1_2015-08-31 seems to have entered the load 10X higher that it should
 
-impute_value<-as.numeric(ECHO_all %>% filter(permit_outfall=='CT0100323_1' & date>'1999-06-30'
-                                             & date <'1999-10-31') %>% #grabbing months before and after August
-                           filter(!date=='1999-08-31') %>% #removing problematic date
-                           summarize(mean(kg_N_TN_per_month)))
-#editing the  outliers
-# ECHO_all$kg_N_TN_per_month<-ifelse(
-#       ECHO_all$key == 'CT0100323_1_1999-08-31', impute_value, ECHO_all$kg_N_TN_per_month)
-# ECHO_all$kg_N_TN_per_month<-ifelse(
-#   ECHO_all$key == 'CT0100447_1_2005-02-28', ECHO_all$kg_N_TN_per_month/1000, ECHO_all$kg_N_TN_per_month) #flow looked like it was 1000X too large
+
 ECHO_all$kg_N_TN_per_month<-ifelse(
   ECHO_all$key == 'NY0026204_1_2015-08-31', ECHO_all$kg_N_TN_per_month/10, ECHO_all$kg_N_TN_per_month) #load looked like it was 10X too large
-# ECHO_all$kg_N_TN_per_month<-ifelse(
-#   ECHO_all$key == 'CT0100447_1_2005-02-28', ECHO_all$kg_N_TN_per_month/1000, ECHO_all$kg_N_TN_per_month) #flow looked like it was 1000X too large
-# ECHO_all$kg_N_TN_per_month<-ifelse(
-#   ECHO_all$key == 'CT0100455_1_2018-04-30', ECHO_all$kg_N_TN_per_month/1000, ECHO_all$kg_N_TN_per_month) #flow looked like it was 1000X too large
 
-#editing the three outliers 
+ECHO_all$kg_N_TN_per_month<-ifelse(
+  ECHO_all$key == 'NY0026204_1_2015-08-31', ECHO_all$kg_N_TN_per_month/10, ECHO_all$kg_N_TN_per_month) #load looked like it was 10X too large
+
+
+  
+  
+#editing outliers 
 PCS_all$kg_N_TN_per_month<-ifelse(
   PCS_all$key == 'MA0110264_2_2003-11-30',
   PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
@@ -106,8 +93,9 @@ PCS_all$kg_N_TN_per_month<-ifelse(
   PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
 
 PCS_all$kg_N_TN_per_month<-ifelse(
-  PCS_all$key == 'NH0001180_1_1992-05-31',
-  PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
+  PCS_all$key == 'NH0001180_1' &  PCS_all$kg_N_TN_per_month>500,
+  PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large for multiple observations
+
 
 
 #points to clean up for ECHO CT data
@@ -120,70 +108,138 @@ PCS_all$kg_N_TN_per_month<-ifelse(
 # ECHO_all$kg_N_TN_per_month<-ifelse(
 #   ECHO_all$key == 'CT0100323_1_1999-08-31', impute_value, ECHO_all$kg_N_TN_per_month)
 # ECHO_all$kg_N_TN_per_month<-ifelse(
+#       ECHO_all$key == 'CT0100323_1_1999-08-31', impute_value, ECHO_all$kg_N_TN_per_month)
+# ECHO_all$kg_N_TN_per_month<-ifelse(
+#   ECHO_all$key == 'CT0100447_1_2005-02-28', ECHO_all$kg_N_TN_per_month/1000, ECHO_all$kg_N_TN_per_month) #flow looked like it was 1000X too large
+# ECHO_all$kg_N_TN_per_month<-ifelse(
 #   ECHO_all$key == 'CT0100447_1_2005-02-28', ECHO_all$kg_N_TN_per_month/10, ECHO_all$kg_N_TN_per_month)
 # ECHO_all$kg_N_TN_per_month<-ifelse(
 #   ECHO_all$key == 'CT0100447_1_2005-02-28', ECHO_all$kg_N_TN_per_month/1000, ECHO_all$kg_N_TN_per_month)
+# ECHO_all$kg_N_TN_per_month<-ifelse(
+#   ECHO_all$key == 'CT0100447_1_2005-02-28', ECHO_all$kg_N_TN_per_month/1000, ECHO_all$kg_N_TN_per_month) #flow looked like it was 1000X too large
+# ECHO_all$kg_N_TN_per_month<-ifelse(
+#   ECHO_all$key == 'CT0100455_1_2018-04-30', ECHO_all$kg_N_TN_per_month/1000, ECHO_all$kg_N_TN_per_month) #flow looked like it was 1000X too large
 
 
+# 
+# #clean up a few problematic observations
+# 
+# ECHO_CT_ouliers<- ECHO_all %>%
+#   filter(state=='CT') %>%
+#   filter(TN_kg_d >3000000)
+# 
+#          TN_lbs_d/2.205, TN_kg_d) #this converts the lbs/day amount for a few outliers in flow and concentration that are clearly wrong
+# 
 
-#clean up a few problematic observations
 
-CT$TN_kg_d<-ifelse(
-  CT$TN_kg_d >3000000, CT$TN_lbs_d/2.205, CT$TN_kg_d) #this converts the lbs/day amount for a few outliers in flow and concentration that are clearly wrong
+PCS_join<-PCS_all %>% filter(!key %in% dup_keys) #remove PCS data that also exists in ECHO
+names(PCS_join)
+names(ECHO_all)
+PCS_join<-select(PCS_join,-quant_avg,-conc_avg,-permit_outfall_designator,-param,-days_per_month, -impute_name.x, -impute_name.y)
 
 
 dat_joined<-rbind(PCS_join, ECHO_all)
 
 
+# filtering out small sources of N ----------------------------------------
+
+##calculating median monthly loads through all time and selecting 15 top
+median_loads<-dat_joined %>%
+  group_by(permit_outfall) %>%
+  summarise(median_kg_N_TN_mo=median(kg_N_TN_per_month, na.rm = T)) %>%
+  arrange (desc(median_kg_N_TN_mo)) %>%
+  slice_head(n=15) 
+median_loads
+
+median_annual<-dat_joined %>%
+  filter(!permit_outfall=='NH0001180_1'& kg_N_TN_per_month>1.2e+01) %>%# filtering out problematic permits
+ # filter(!permit_outfall=='MA0110264_2'& kg_N_TN_per_month>3e+07) %>% #filtering out problematic permits
+  group_by(permit_outfall, year=year(month_year)) %>%
+  summarise(kg_N_TN_yr=sum(kg_N_TN_per_month, na.rm = T)) %>%
+  group_by(permit_outfall)%>%
+  summarise(median_annual=median(kg_N_TN_yr, na.rm = T)) %>%
+  arrange (desc(median_annual)) %>%
+  slice_head(n=15) 
+median_annual
+
+# join data and clean up facility names -----------------------------------
+
+
+#the same 15 outfalls are listed as top polluters by both measures of median monthly and median annual loads
+
+top_15_permit_outfalls<-(median_annual$permit_outfall)
+
+dat<-filter(dat_joined, permit_outfall %in% top_15_permit_outfalls)
+
+unique(dat$facility)
+
+#cleaning up conflicting names
+dat<-dat %>% 
+  mutate(facility=
+        case_when(
+          facility=='RED HOOK WATER POLLUTION CONTR' ~ "NYCDEP - RED HOOK WPCP",
+          facility=="HUNT'S POINT WPC" ~ "NYCDEP - HUNT'S POINT WPCP",
+          facility=="TALLMANISLAND WPC" ~"NYCDEP - TALLMAN ISLAND WPCP",
+          facility=="NEWTOWNCREEK WPC" ~ "NYCDEP - NEWTOWN CREEK WPCP",
+          facility=="RED HOOK WATER POLLUTION CONTR" ~"NYCDEP - RED HOOK WPCP",
+          facility=="WARD ISLAND WPC" ~"NYCDEP - WARD'S ISLAND WPCP",
+          TRUE ~ facility)
+        )
+
+#split data apart and impute facility names for the mismatches
+corrected_facility<-dat %>% filter(!is.na(impute_facility)) %>%
+  mutate(facility=impute_facility)
+original_facility<-dat %>% filter(is.na(impute_facility)) 
+
+#recombine data
+dat<-rbind(corrected_facility,original_facility)
+
+unique(dat$facility)
+filter(dat, is.na(facility))
+
+# monthly plots -----------------------------------------------------------
+
+ggplot(dat,aes(x=month_year,y=kg_N_TN_per_month)) +
+  geom_point()+
+  geom_line(col='darkgrey')+
+  ylab('monthly total N load by outfall (kg N/mo)')+
+  ggtitle('Monthly totals top 15 facilities only')+
+  facet_wrap(~facility, scales = "free")
+
+
+
 # annual sum --------------------------------------------------------------
 
-annual_sum<-dat_joined %>%
-  group_by(facility, state,permit_outfall, year=year(month_year)) %>%
+annual_sum<-dat %>%
+  group_by(permit_outfall, facility,year=year(month_year)) %>%
   summarise(kg_N_TN_yr=sum(kg_N_TN_per_month, na.rm = T))
+
 
 ggplot(annual_sum,aes(x=year,y=kg_N_TN_yr/1000)) +
   geom_point()+
   geom_smooth(method = "loess")+
-  ylab('Annual total N load by outfall (Mg/yr)')
-
-filter(annual_sum,state=='CT')%>%
-  ggplot(aes(x=year,y=kg_N_TN_yr/1000)) +
-  geom_point()+
-  geom_smooth(method = "loess")+
-  ylab('Annual total N load by outfall (Mg/yr)')+
-  ggtitle('CT facilities only')+
+  ylab('Annual total N load by outfall (Mg N/yr)')+
+  ggtitle('Annual totals top 15 facilities only')+
   facet_wrap(~facility, scales = "free")
 
-filter(annual_sum,!state=='CT')%>%
-  ggplot(aes(x=year,y=kg_N_TN_yr/1000)) +
-  geom_point()+
-  geom_smooth(method = "loess")+
-  ylab('Annual total N load by outfall (Mg/yr)')+
-  ggtitle('Non-CT facilities only')+
-  facet_wrap(~facility, scales = "free")
+#the annual totals look wonky
+# 
+# watershed_annual_sum<-dat_joined %>%
+#   group_by(watershed=name, year=year(month_year)) %>%
+#   summarise(kg_N_TN_yr=sum(kg_N_TN_per_month, na.rm = T))
+# 
+# ggplot(watershed_annual_sum,aes(x=year,y=kg_N_TN_yr/1000)) +
+#   geom_point()+
+#   geom_smooth(method = "loess")+
+#   ylab('Annual total N load by outfall (Mg/yr)')
+# 
+# ggplot(watershed_annual_sum,aes(x=year,y=kg_N_TN_yr/1000)) +
+#   geom_point()+
+#   geom_smooth(method = "loess")+
+#   ylab('Annual total N load by watershed (Mg/yr)')+
+#   facet_wrap(~watershed, scales = "free")
+# 
 
-
-watershed_annual_sum<-dat_joined %>%
-  group_by(watershed=name, year=year(month_year)) %>%
-  summarise(kg_N_TN_yr=sum(kg_N_TN_per_month, na.rm = T))
-
-ggplot(watershed_annual_sum,aes(x=year,y=kg_N_TN_yr/1000)) +
-  geom_point()+
-  geom_smooth(method = "loess")+
-  ylab('Annual total N load by outfall (Mg/yr)')
-
-ggplot(watershed_annual_sum,aes(x=year,y=kg_N_TN_yr/1000)) +
-  geom_point()+
-  geom_smooth(method = "loess")+
-  ylab('Annual total N load by watershed (Mg/yr)')+
-  facet_wrap(~watershed, scales = "free")
-
-# filtering out small sources of N ----------------------------------------
-
-median_loads<-dat_joined %>%
-  group_by(state,permit_outfall) %>%
-  summarise(median_kg_N_TN_mo=median(kg_N_TN_per_month, na.rm = T)) %>%
-  arrange(desc(median_kg_N_TN_mo)) 
 
 
 
