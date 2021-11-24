@@ -636,13 +636,20 @@ filter(N_load_b, !is.na(kg_N_NO2_per_month) & !is.na(kg_N_NO3NO2_per_month))
 N_load_b <- N_load_b %>%
   mutate(kg_N_sum_per_month =
            case_when(
+             all(
+               is.na(kg_N_NH3_per_month),
+               is.na(kg_N_NO3_per_month),
+               is.na(kg_N_NO2_per_month),
+               is.na(kg_N_NO3NO2_per_month)
+               ) ~ NA_real_,
              is.na(kg_N_TKN_per_month) ~ sum(
                kg_N_NH3_per_month,
                kg_N_NO3_per_month,
                kg_N_NO2_per_month,
                kg_N_NO3NO2_per_month,
                na.rm = TRUE
-             ),!is.na(kg_N_TKN_per_month) ~ sum(
+             ),
+             !is.na(kg_N_TKN_per_month) ~ sum(
                kg_N_TKN_per_month,
                kg_N_NO3_per_month,
                kg_N_NO2_per_month,
@@ -650,7 +657,6 @@ N_load_b <- N_load_b %>%
                na.rm = TRUE
              )
            )) 
-
 
 #remove intermediate columns we no longer need
 N_load_b <- N_load_b %>%
