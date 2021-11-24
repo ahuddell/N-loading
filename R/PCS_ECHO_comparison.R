@@ -47,7 +47,7 @@ ggplot(dat, aes(x=kg_N_TN_per_month.ECHO, y=kg_N_TN_per_month.PCS)) +
   geom_point() +
   geom_abline(slope=1)
 
-#everything looks good
+
 dat$ECHO_minus_PCS<-dat$kg_N_TN_per_month.ECHO-
   dat$kg_N_TN_per_month.PCS
 
@@ -164,6 +164,11 @@ ggplot(dat, aes(x=kg_N_TN_per_month.ECHO, y=kg_N_TN_per_month.PCS)) +
   geom_point() +
   geom_abline(slope=1)
 #now there's pretty close agreement
+
+dat$ECHO_minus_PCS<-dat$kg_N_TN_per_month.ECHO-
+  dat$kg_N_TN_per_month.PCS
+difference<-filter(dat, ECHO_minus_PCS>1 | ECHO_minus_PCS < -1)
+difference
 
 
 summary(ECHO_all$kg_N_TN_per_month)
