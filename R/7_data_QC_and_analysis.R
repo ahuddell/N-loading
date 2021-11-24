@@ -3,7 +3,6 @@ library(lubridate)
 library(here)
 library(lme4)
 library(lmerTest)
-library(astsa)
 
 #load both datasets
 PCS_all<-read_csv(file=here("data","PCS_data_clean.csv"))
@@ -135,7 +134,7 @@ PCS_all$kg_N_TN_per_month<-ifelse(
 PCS_join<-PCS_all %>% filter(!key %in% dup_keys) #remove PCS data that also exists in ECHO
 names(PCS_join)
 names(ECHO_all)
-PCS_join<-select(PCS_join,-quant_avg,-conc_avg,-permit_outfall_designator,-param,-days_per_month, -impute_name.x, -impute_name.y)
+PCS_join<-select(PCS_join,-quant_avg,-conc_avg,-permit_outfall_designator,-param,-days_per_month)
 
 
 dat_joined<-rbind(PCS_join, ECHO_all)
@@ -162,10 +161,11 @@ median_annual<-dat_joined %>%
   slice_head(n=15) 
 median_annual
 
-# join data and clean up facility names -----------------------------------
-
-
+median_loads$permit_outfall %in% median_annual$permit_outfall
 #the same 15 outfalls are listed as top polluters by both measures of median monthly and median annual loads
+
+
+# join data and clean up facility names -----------------------------------
 
 top_15_permit_outfalls<-(median_annual$permit_outfall)
 
@@ -186,135 +186,151 @@ dat<-dat %>%
           TRUE ~ facility)
         )
 
-#split data apart and impute facility names for the mismatches
-corrected_facility<-dat %>% filter(!is.na(impute_facility)) %>%
-  mutate(facility=impute_facility)
-original_facility<-dat %>% filter(is.na(impute_facility)) 
 
-#recombine data
-dat<-rbind(corrected_facility,original_facility)
+unique(dat$facility) #now there are only 15
 
-unique(dat$facility)
-filter(dat, is.na(facility))
-
-# monthly plots -----------------------------------------------------------
-
-ggplot(dat,aes(x=month_year,y=kg_N_TN_per_month)) +
-  geom_point()+
-  geom_line(col='darkgrey')+
-  ylab('monthly total N load by outfall (kg N/mo)')+
-  ggtitle('Monthly totals top 15 facilities only')+
-  facet_wrap(~facility, scales = "free")
+#filtering out more points that are too far from Western Basin
+facilities_remove<-c("NEW HAVEN EAST WPCF","MATTABASSET WPCF","DANBURY WPCF",
+                     "BRISTOL WPCF","WATERBURY WPCF" ,"HARTFORD WPCF",
+                     "WATERBURY WPCF" )
 
 
+dat<-dat %>% filter(!facility %in% facilities_remove)
 
-# annual sum --------------------------------------------------------------
-
-annual_sum<-dat %>%
-  group_by(permit_outfall, facility,year=year(month_year)) %>%
-  summarise(kg_N_TN_yr=sum(kg_N_TN_per_month, na.rm = T))
+unique(dat$facility) #now there are only 9
 
 
-ggplot(annual_sum,aes(x=year,y=kg_N_TN_yr/1000)) +
-  geom_point()+
-  geom_smooth(method = "loess")+
-  ylab('Annual total N load by outfall (Mg N/yr)')+
-  ggtitle('Annual totals top 15 facilities only')+
-  facet_wrap(~facility, scales = "free")
+write_csv(dat,
+          file = here("data", 'combined_top9_WLIS_clean_dat.csv'))
 
-#the annual totals look wonky
-# 
-# watershed_annual_sum<-dat_joined %>%
-#   group_by(watershed=name, year=year(month_year)) %>%
-#   summarise(kg_N_TN_yr=sum(kg_N_TN_per_month, na.rm = T))
-# 
-# ggplot(watershed_annual_sum,aes(x=year,y=kg_N_TN_yr/1000)) +
-#   geom_point()+
-#   geom_smooth(method = "loess")+
-#   ylab('Annual total N load by outfall (Mg/yr)')
-# 
-# ggplot(watershed_annual_sum,aes(x=year,y=kg_N_TN_yr/1000)) +
-#   geom_point()+
-#   geom_smooth(method = "loess")+
-#   ylab('Annual total N load by watershed (Mg/yr)')+
-#   facet_wrap(~watershed, scales = "free")
-# 
+
+# map median monthly loads all data ------------------------------------------
+
+library(sf)
+library(leaflet)
+library(mapview)
+library(ma)
+
+huc8<-st_read(here('data','huc_8_dat_join','huc8_combined.shp'))
 
 
 
+median_loads_all<-dat_joined %>%
+  group_by(permit_outfall,LATITUDE83,LONGITUDE83,name) %>%
+  summarise(median_kg_N_TN_mo=median(kg_N_TN_per_month, na.rm = T)) 
+median_loads_all
 
-# seasons -----------------------------------------------------------------
-
-quarterly_sums<-dat_joined %>%
-  mutate(season= case_when(
-    month(month_year)=='12' ~ 'winter',
-    month(month_year)=='1' ~ 'winter',
-    month(month_year)=='2' ~ 'winter',
-    month(month_year)=='3' ~ 'spring',
-    month(month_year)=='3' ~ 'spring',
-    month(month_year)=='5' ~ 'spring',
-    month(month_year)=='6' ~ 'summer',
-    month(month_year)=='7' ~ 'summer',
-    month(month_year)=='8' ~ 'summer',
-    month(month_year)=='9' ~ 'fall',
-    month(month_year)=='10' ~ 'fall',
-    month(month_year)=='11' ~ 'fall'
-  )) %>%
-  group_by(facility, state,permit_outfall, season) %>%
-  summarise(kg_N_TN_season=sum(kg_N_TN_per_month, na.rm = T))
+dat_sf=st_as_sf(median_loads_all, 
+              coords=c("LONGITUDE83","LATITUDE83"),
+              crs=st_crs(huc8))
 
 
+huc8_names <- huc8%>%
+  group_by(name) %>%
+  slice(1) %>%
+  st_centroid() 
 
-ggplot(quarterly_sums, aes(x=season, y=kg_N_TN_season)) +
-  geom_point() +
-  geom_boxplot(alpha=.4)+
-  ggtitle('Seasonal differences through time')+
-  ylab('Seasonal TN load (kg N)')+
-  theme(axis.text.x = element_text(angle = 60, hjust=1))+
-  ylim(0,10000)
+#leaflet map
+bigm <- leaflet(huc8) %>%
+  addProviderTiles(providers$Stamen.TonerLite) %>%
+  addPolygons( fillColor = ~ "lightgrey",
+               weight = 1,
+               color = 'black',
+               opacity = 1,
+               fillOpacity = .7)  %>%
+  addCircleMarkers(
+    data = dat_sf$geometry,
+    col = 'red',
+    fillOpacity = .8,
+    radius = dat_sf$median_kg_N_TN_mo/10^4.5) %>%
+  # addLabelOnlyMarkers(data = huc8_names,
+  #                     lng = ~unlist(map(huc8_names$geometry,1)), 
+  #                     lat = ~unlist(map(huc8_names$geometry,2)), label = ~name,
+  #                     labelOptions = labelOptions(noHide = TRUE, 
+  #                                                 direction = 'top', textOnly = TRUE)) %>%
+   setView(lat = 42.5,
+          lng = -72.7,
+          zoom = 7) 
 
+bigm
 
-
-quarterly_sums_nonzero<-filter(quarterly_sums,kg_N_TN_season>0)
-summary(lm(log(quarterly_sums_nonzero$kg_N_TN_season)~as.factor((quarterly_sums_nonzero$season))))
-
-lm1<-aov(lm(log(ECHO_nonzero$kg_N_TN_per_month)~as.factor(month(ECHO_nonzero$month_year))))
-TukeyHSD(lm1)
-
-
-lmer1<-lmer(log(kg_N_TN_per_month)~
-              as.factor(month(month_year)) + 
-              (1|permit_outfall), data=ECHO_nonzero)
-summary(lmer1)
-
-# test for seasonality ----------------------------------------------------
-
-#see https://online.stat.psu.edu/stat510/lesson/4/4.2
-#and https://digitalcommons.wayne.edu/cgi/viewcontent.cgi?article=2030&context=jmasm
-#https://www.r-bloggers.com/2021/04/timeseries-analysis-in-r/
-#http://fable.tidyverts.org/
-
-
-#these commands below are designed for time series of n=1, but I need to figure out how to
-#analyze for the many different time series in our data for each permit/outfall
+mapshot(bigm, file = here("maps", "median_monthly_load_big_map.png"))
 
 
-Chicopee_monthly_totals<-dat_joined %>%
-  filter(name=='Chicopee River') %>%
-  group_by(month_year) %>%
-  summarise(kg_N_TN_month=sum(kg_N_TN_per_month, na.rm = T))
+# map top 15 only ---------------------------------------------------------
 
-plot(Chicopee_monthly_totals)
+median_loads_top_9<-dat %>%
+  group_by(permit_outfall,LATITUDE83,LONGITUDE83,name) %>%
+  summarise(median_kg_N_TN_mo=median(kg_N_TN_per_month, na.rm = T)) 
+median_loads_top_9
 
-Chicopee_monthly_totals_ts<-ts(Chicopee_monthly_totals)
-Chicopee_monthly_totals_ts
+dat_sf2=st_as_sf(median_loads_top_9, 
+                coords=c("LONGITUDE83","LATITUDE83"),
+                crs=st_crs(huc8))
 
-diff12=diff(Chicopee_monthly_totals_ts, 12)
-plot(diff12)
-acf2(diff12)
-diff1and12 = diff(diff12, 1) 
+#zoomed in map near western LIS
+#leaflet map
+top9m <- leaflet(huc8) %>%
+  addProviderTiles(providers$Stamen.TonerLite) %>%
+  addPolygons( fillColor = ~ "lightgrey",
+               weight = 1,
+               color = 'black',
+               opacity = 1,
+               fillOpacity = .7)  %>%
+  addCircleMarkers(
+    data = dat_sf2$geometry,
+    col = 'red',
+    fillOpacity = .8,
+    radius = dat_sf2$median_kg_N_TN_mo/10^4.5) %>%
+  # addLabelOnlyMarkers(data = huc8_names,
+  #                     lng = ~unlist(map(huc8_names$geometry,1)), 
+  #                     lat = ~unlist(map(huc8_names$geometry,2)), label = ~name,
+  #                     labelOptions = labelOptions(noHide = TRUE, 
+  #                                                 direction = 'top', textOnly = TRUE)) %>%
+  setView(lat = 40.8,
+          lng = -73.6 ,
+          zoom = 10) 
 
-diff4 = diff(Chicopee_monthly_totals_ts, 4)
-diff1and4 = diff(diff4,1)
-acf2(diff1and4,24)
+top9m
 
+mapshot(top9m, file = here("maps", "median_monthly_load_top9.png"))
+
+# selecting final list ----------------------------------------------------
+
+# map top 9 only ---------------------------------------------------------
+
+median_loads_top_15<-dat %>%
+  group_by(permit_outfall,LATITUDE83,LONGITUDE83,name) %>%
+  summarise(median_kg_N_TN_mo=median(kg_N_TN_per_month, na.rm = T)) 
+median_loads_top_15
+
+dat_sf=st_as_sf(median_loads_top_15, 
+                coords=c("LONGITUDE83","LATITUDE83"),
+                crs=st_crs(huc8))
+
+#zoomed in map near western LIS
+#leaflet map
+top15m <- leaflet(huc8) %>%
+  addProviderTiles(providers$OpenStreetMap) %>%
+  addPolygons( fillColor = ~ "lightgrey",
+               weight = 1,
+               color = 'black',
+               opacity = 1,
+               fillOpacity = .7)  %>%
+  addCircleMarkers(
+    data = dat_sf$geometry,
+    col = 'red',
+    fillOpacity = .8,
+    radius = dat_sf$median_kg_N_TN_mo/10^4.5) %>%
+  # addLabelOnlyMarkers(data = huc8_names,
+  #                     lng = ~unlist(map(huc8_names$geometry,1)), 
+  #                     lat = ~unlist(map(huc8_names$geometry,2)), label = ~name,
+  #                     labelOptions = labelOptions(noHide = TRUE, 
+  #                                                 direction = 'top', textOnly = TRUE)) %>%
+  setView(lat = 41.5,
+          lng = -73 ,
+          zoom = 8) 
+
+top15m
+
+mapshot(top15m, file = here("maps", "median_monthly_load_top15.png"))
