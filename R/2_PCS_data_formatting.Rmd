@@ -549,13 +549,20 @@ filter(N_load_b, !is.na(kg_N_NO2_per_month) & !is.na(kg_N_NO3NO2_per_month))
 N_load_b <- N_load_b %>%
   mutate(kg_N_sum_per_month =
            case_when(
+             all(
+               is.na(kg_N_NH3_per_month),
+               is.na(kg_N_NO3_per_month),
+               is.na(kg_N_NO2_per_month),
+               is.na(kg_N_NO3NO2_per_month)
+               ) ~ NA_real_,
              is.na(kg_N_TKN_per_month) ~ sum(
                kg_N_NH3_per_month,
                kg_N_NO3_per_month,
                kg_N_NO2_per_month,
                kg_N_NO3NO2_per_month,
                na.rm = TRUE
-             ),!is.na(kg_N_TKN_per_month) ~ sum(
+             ),
+             !is.na(kg_N_TKN_per_month) ~ sum(
                kg_N_TKN_per_month,
                kg_N_NO3_per_month,
                kg_N_NO2_per_month,
@@ -751,10 +758,7 @@ N_load_out$LONGITUDE83<-if_else(N_load_out$permit_outfall== 'MA0101214_1', -72.5
 
 
     
-missing_latitude<-N_load_out %>% filter(is.na(LATITUDE83)) %>%
-  group_by(permit_outfall)%>%
-  summarize(impute_lat=first(impute_lat))
-missing_latitude #6 outfalls missing coordinates
+
 N_load_out <- N_load_out %>%
   mutate(LATITUDE83 =
            case_when(
