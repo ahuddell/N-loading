@@ -4,7 +4,7 @@ library(lubridate)
 library(here)
 
 #load both datasets
-ECHO_all<-read_csv(file = here("data", "ECHO_data_clean.csv"))
+ECHO_all<-read_csv(file = here("data", "ECHO_CT_data.csv"))
 
 CT<-read_csv(file=here("data","CT_NX_data.csv"))
 CT$key<-paste0(CT$facility,"_",CT$date)
@@ -14,9 +14,9 @@ CT<-distinct(CT) #remove a few duplicate rows
 
 #editing the three outliers 
 
-impute_value<-as.numeric(ECHO_all %>% filter(permit_outfall=='CT0100323_1' & date>'1999-06-30'
-                                             & date <'1999-10-31') %>% #grabbing months before and after August
-                           filter(!date=='1999-08-31') %>% #removing problematic date
+impute_value<-as.numeric(ECHO_all %>% filter(permit_outfall=='CT0100323_1' & month_year>'1999-06'
+                                             & month_year <'1999-10') %>% #grabbing months before and after August
+                           filter(!month_year=='1999-08') %>% #removing problematic date
                            summarize(mean(kg_N_TN_per_month)))
 
 ECHO_all$kg_N_TN_per_month<-ifelse(
@@ -114,8 +114,8 @@ ggplot(dup_dat, aes(x=kg_N_TN_per_month.ECHO, y=kg_N_TN_per_month.CTDEEP,
   xlab('ECHO monthly total N loads (kg N/month)')+
   geom_hline(yintercept=0)+
   geom_vline(xintercept=0)+
-  xlim(0,40000)+
   ggtitle('Comparison of monthly load data by data source')+
+  xlim(0,50000)+
   theme_minimal()
 
 
