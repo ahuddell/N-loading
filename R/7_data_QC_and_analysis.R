@@ -139,6 +139,8 @@ PCS_join<-select(PCS_join,-quant_avg,-conc_avg,-permit_outfall_designator,-param
 
 dat_joined<-rbind(PCS_join, ECHO_all)
 
+write_csv(dat_joined,'clean_PCS_ECHO_dat.csv')
+
 
 # filtering out small sources of N ----------------------------------------
 
@@ -199,6 +201,7 @@ dat<-dat %>% filter(!facility %in% facilities_remove)
 
 unique(dat$facility) #now there are only 9
 
+dat<-distinct(dat)
 
 write_csv(dat,
           file = here("data", 'combined_top9_WLIS_clean_dat.csv'))
