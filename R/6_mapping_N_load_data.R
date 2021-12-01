@@ -62,7 +62,7 @@ m
 # read in our data convert to sf object -----------------------------------
 
 #read data
-dat<-read_csv( file = here('data', 'ECHO_data_clean.csv'))
+dat<-read_csv( file = here('data', 'clean_PCS_ECHO_dat.csv'))
 
 
 #calculating monthly TN totals by watershed
