@@ -756,6 +756,8 @@ nrow(N_load) #7863
 
 summary(N_load$kg_N_TN_per_month)
 
+#write_csv(N_load,here("data","ECHO_CT_data.csv"))
+
 ```
 
 #Format and add in the CT data
