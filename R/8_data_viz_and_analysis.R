@@ -4,7 +4,10 @@ library(here)
 library(lme4)
 library(lmerTest)
 library(imputeTS)
+library(zoo)
 library(tsibble)
+library(slider)
+library(car)
 #library(astsa)
 
 
@@ -24,11 +27,11 @@ ggplot(dat,aes(x=month_year,y=kg_N_TN_per_month/1000)) +
 
 ggplot(dat,aes(x=month_year,y=kg_N_TN_per_month/1000)) +
   geom_point()+
-  geom_line(col='darkgrey')+
+  #geom_line(col='darkgrey')+
   ylab('monthly total N load by outfall (1000 kg N/mo)')+
   ggtitle('Monthly totals top 9 facilities Western LIS only')+
   xlab('Date')+
-    facet_wrap(~permit)
+  facet_wrap(~facility)
 
 
 # annual sum --------------------------------------------------------------
@@ -64,103 +67,174 @@ dat<-dat %>%
     month(month_year)=='11' ~ 'fall'
   ))
 
-ggplot(dat, aes(x=season, y=kg_N_TN_per_month)) +
-  geom_jitter(width=.05,alpha=.4) +
-  geom_violin(fill='lightgrey', color='lightgrey',alpha=.4)+
+
+
+# impute time series missing data -----------------------------------------
+
+#first removing duplicates
+dat$kg_N_TN_per_month<-round(dat$kg_N_TN_per_month,2)
+dat<- dat %>%
+  select(permit, facility, key,permit_outfall, kg_N_TN_per_month, month_year,
+             outfall=Outfall,state, LATITUDE83,LONGITUDE83,huc8,name,season) %>%
+  distinct()
+
+#drop day from month year format
+#dat_ts$month_year<-format(as.Date(dat_ts$month_year), "%Y-%m")
+dat$month_year<-yearmonth(dat$month_year)
+
+#create tsibble object
+dat_ts<-as_tsibble(dat, key = facility, index=month_year)
+dat_ts
+
+#inspecting missingingness
+has_gaps(dat_ts)
+scan_gaps(dat_ts)
+ts_gaps<-count_gaps(dat_ts)
+
+#visualizing time gaps
+ggplot(ts_gaps, aes(x = facility, colour = facility)) +
+  geom_linerange(aes(ymin = .from, ymax = .to)) +
+  geom_point(aes(y = .from)) +
+  geom_point(aes(y = .to)) +
+  coord_flip() +
   theme_minimal()+
-  geom_pointrange()+
-  ggtitle('Monthly loads by season')+
-  ylab('monthly total N load by outfall (kg N/mo)')+
-  theme(axis.text.x = element_text(angle = 60, hjust=1))
+  ggtitle('Data gaps in time')+
+  theme(legend.position = "bottom")
+
+
+#impute 36-month running average 
+full_ts<- dat_ts %>%
+          group_by_key() %>% 
+          mutate(kg_N_TN_per_month_complete=kg_N_TN_per_month)%>%
+          fill_gaps(kg_N_TN_per_month_complete=mean(kg_N_TN_per_month, na.rm=T), 
+                    .full = TRUE)
+
+#wanted to customize this more, but not working yet
+          # fill_gaps(kg_N_TN_per_month,.full = FALSE)#make NAs explicit by filling in missing months as "NA"
+          # mutate(imputed=is.na(kg_N_TN_per_month))%>% #noting which data are NA that we will impute
+          # group_by_key() %>% 
+          # mutate(rolling_mean_36 =
+          #          slide_dbl(kg_N_TN_per_month,
+          #                    ~ mean(., na.rm = TRUE),  
+          #                    size=36)
+          #        )%>%
+          # mutate(rolling_mean_3 =
+          #          slide_dbl(kg_N_TN_per_month,
+          #                    ~ mean(., na.rm = TRUE),  
+          #                    size=3)
+          # )%>%
+          # mutate(kg_N_TN_per_month_complete=
+          #          case_when(
+          #    is.na(kg_N_TN_per_month) ~ mean(kg_N_TN_per_month,na.rm=T), #impute rolling mean from 36 month window when needed
+          #   !is.na(kg_N_TN_per_month) ~ kg_N_TN_per_month))
+
+#broken but want to use in future
+# mutate(kg_N_TN_per_month_complete=
+#          case_when(
+#            #(is.na(kg_N_TN_per_month) & is.na(rolling_mean_3)) ~ rolling_mean_36, #impute rolling mean from 36 month window when needed
+#            #(is.na(kg_N_TN_per_month) & !is.na(rolling_mean_3))~ rolling_mean_3, #impute mean from only 3 months when possible
+#            !is.na(kg_N_TN_per_month) ~kg_N_TN_per_month))
+
+summary(full_ts$kg_N_TN_per_month)
+summary(full_ts$kg_N_TN_per_month_complete) #this imputes the mean across all time
+
+
+
+ggplot(full_ts, aes(x=month_year, y=kg_N_TN_per_month_complete/1000)) +
+  #geom_point()+
+  geom_line()+
+  ylab('monthly total N load by outfall (1000 kg N/mo)')+
+  ggtitle('Monthly totals top 9 facilities Western LIS only; data gaps imputed')+
+  xlab('Date')+
+  theme_minimal()+
+  facet_wrap(~facility)
+
+
+
+
+# #sample of data summary by time index
+# dat_ts%>% 
+#   group_by_key() %>%
+#   index_by(year = year(month_year)) %>% 
+#   summarise(
+#     Nload_high = max(kg_N_TN_per_month, na.rm = TRUE),
+#     Nload_low = min(kg_N_TN_per_month, na.rm = TRUE)
+#   )
+
+
+# seasons analysis --------------------------------------------------------
+dat_nonzero<-filter(full_ts,kg_N_TN_per_month_complete>0 &
+                      !is.na(permit_outfall) &
+                      !is.na(season))
+
+hist(dat_nonzero$kg_N_TN_per_month_complete)
+
+meq1=lmer(log(kg_N_TN_per_month_complete) ~ season+ (1|permit_outfall), data=dat_nonzero, 
+              na.action=NULL)
+
+summary(meq1) 
+r.squaredGLMM(meq1)
+
+#adding the intercept (fall) to all model fits
+coef <- data.frame(data = rep(fixef(meq1)[('(Intercept)')],4) +
+                     c(0,fixef(meq1)['seasonspring'], 
+                       fixef(meq1)['seasonsummer'], 
+                       fixef(meq1)['seasonwinter'])
+)
+
+se <- sqrt(diag(vcov(meq1))) #standard errors from meq1
+
+
+meq1_outputs<- cbind(coef, se)
+colnames(meq1_outputs) <- c('coef', 'SE')
+meq1_outputs$season<-c('fall','spring','summer','winter')
+meq1_outputs
+
+
+season_plot<-ggplot() +
+  geom_jitter(data=dat_nonzero, aes(x=as.factor(season), y=log(kg_N_TN_per_month)),width=.05,alpha=.4) +
+  geom_violin(data=dat_nonzero, aes(x=as.factor(season), y=log(kg_N_TN_per_month)),fill='lightgrey', color='lightgrey',alpha=.4)+
+  geom_pointrange(data=meq1_outputs,
+                  aes(x=season,y=coef,ymin = coef-SE, ymax =  coef+SE), 
+                  col='red',
+                  size=1) +
+  theme_minimal()+
+  xlab('Monthly loads by season')+
+  ylab('ln (monthly total N load by outfall (kg N/mo))')+
+  theme(axis.text.x = element_text(angle = 60, hjust=1))+
+  annotate(geom='text',x=c(1.1,2.1,3.1,4.1), y=c(13.8,14.8,14.25,14.8), label=c('a','b','ab','b'),
+           fontface =2)
+season_plot
+
+
+# 
+# #fig 4
+# seasons_plot<-ggplot() +
+#   geom_violin(dat_ts, aes(x=season, y=kg_N_TN_per_month_complete)) +
+#   geom_jitter(dat_ts, aes(x=season, y=kg_N_TN_per_month_complete, 
+#               width=.05, alpha=.3)) +
+#   ylab('monthly total N load by outfall (kg N/mo)')+
+#   
+#   geom_pointrange(data = meq2_outputs,aes(reorder(names, coef), coef, 
+#                                           ymin = coef-SE, ymax =  coef+SE), col='red') +
+#   theme(axis.text.x = element_text(angle=30, hjust=1)) +
+#   scale_x_discrete('' ,labels=x_axis) +
+#   geom_segment(aes(x=0,xend=0,y=-2,yend=3.5), colour="black") +
+#   geom_hline(yintercept=-2, color = "black") +
+#   theme_default(axis_text_size = 13) +
+#   geom_vline(xintercept=c(1.5,3.5, 5.5, 7.5), linetype='longdash') 
+# seasons_plot
+
+
 
 hist(dat$kg_N_TN_per_month)
 
-dat_nonzero<-filter(dat,kg_N_TN_per_month>0)
 summary(lm(log(dat_nonzero$kg_N_TN_per_month)~as.factor((dat_nonzero$season))))
 
 lmer1<-lmer(log(kg_N_TN_per_month)~
               as.factor(season) + 
               (1|permit_outfall), data=dat_nonzero)
 summary(lmer1)
-
-# impute time series missing data -----------------------------------------
-
-library(tsibble)
-weather <- nycflights13::weather %>% 
-  select(origin, time_hour, temp, humid, precip)
-weather
-
-weather_tsbl <- as_tsibble(weather, key = origin)
-
-
-
-dat<-distinct(dat)
-dups<-duplicates(dat, key = permit,index=month_year)
-
-dups<-distinct(dups)
-
-dat_ts<-as_tsibble(dat, key = permit,index=month_year)
-
-full_ts <- dat %>%
-  fill_gaps(kg_N_TN_per_month = 0) %>% 
-  group_by_key() %>% 
-  tidyr::fill(temp, humid, .direction = "down")
-full_weather
-
-# dat %>% 
-#   select(facility, month_year, kg_N_TN_per_month) %>% 
-#   
-dat_split<-split(dat,dat$permit) 
-
-for (i in 1:length(dat_split)) {
-    assign(paste0(names(dat_split)[i]), dat_split[[i]])
-           }
-permit_list<-unique(dat$permit)
-
-
-
-NY0026131<-select(NY0026131,month_year,kg_N_TN_per_month) %>% arrange(month_year)
-NY0026191<-select(NY0026191,month_year,kg_N_TN_per_month) %>% arrange(month_year)
-NY0026239<-select(NY0026239,month_year,kg_N_TN_per_month) %>% arrange(month_year)
-NY0026204<-select(NY0026204,month_year,kg_N_TN_per_month) %>% arrange(month_year)
-NY0027073<-select(NY0027073,month_year,kg_N_TN_per_month) %>% arrange(month_year)
-NY0026158<-select(NY0026158,month_year,kg_N_TN_per_month) %>% arrange(month_year)
-CT0100056<-select(CT0100056,month_year,kg_N_TN_per_month) %>% arrange(month_year)
-CT0101087<-select(CT0101087,month_year,kg_N_TN_per_month) %>% arrange(month_year)
-CT0101249<-select(CT0101249,month_year,kg_N_TN_per_month) %>% arrange(month_year)
-
-
-
-NY0026131<-ts(NY0026131[, 2], start=c(1996,1), frequency=12)
-NY0026191<-ts(NY0026191[, 2], start=c(1996,1), frequency=12)
-NY0026239<-ts(NY0026239[, 2], start=c(1992,1), frequency=12)
-NY0026204<-ts(NY0026204[, 2], start=c(1992,1), frequency=12)
-NY0027073<-ts(NY0027073[, 2], start=c(1992,1), frequency=12)
-NY0026158<-ts(NY0026158[, 2], start=c(2006,1), frequency=12)
-CT0100056<-ts(CT0100056[, 2], start=c(2002,1), frequency=12)
-CT0101087<-ts(CT0101087[, 2], start=c(2002,1), frequency=12)
-CT0101249<-ts(CT0101249[, 2], start=c(2002,1), frequency=12)
-
-statsNA(NY0026131)
-statsNA(NY0026191)
-statsNA(NY0026239)
-statsNA(NY0026204)
-statsNA(NY0027073)
-statsNA(NY0026158)
-statsNA(CT0100056)
-statsNA(CT0101087)
-statsNA(CT0101249)
-
-
-
-plot(NY0026131)
-plot(NY0026191)
-plot(NY0026239)
-plot(NY0026204)
-plot(NY0027073)
-plot(NY0026158)
-
-
 
 # load vs. hypoxia --------------------------------------------------------
 
@@ -177,37 +251,78 @@ hyp$month_year<-ym(hyp$month_year)
 min(hyp$month_year, na.rm=T)
 max(hyp$month_year, na.rm=T)
 
-hyp_month<-hyp %>%
-  group_by(month_year) %>%
+hyp_yr<-hyp %>%
+  group_by(year=year(month_year)) %>%
   summarise(max_Area_under_3_mgL =max(Area_under_3_mgL, na.rm=T),
             mean_Area_under_3_mgL =mean(Area_under_3_mgL, na.rm=T),
             max_Area_under_5_mgL =max(Area_under_5_mgL, na.rm=T),
-            mean_Area_under_5_mgL =mean(Area_under_5_mgL, na.rm=T)) 
-hyp_month
+            mean_Area_under_5_mgL =mean(Area_under_5_mgL, na.rm=T))
+hyp_yr
+
+##correlation between spring + summer total load and hypoxia area
+spring_summer<-as_tibble(full_ts) %>% 
+  mutate(year=year(month_year)) %>%
+  select(season, year, kg_N_TN_per_month_complete) %>%
+  filter(season=='spring' | season=='summer') %>%
+  group_by(year) %>%
+  summarise(spring_summer_total=sum(kg_N_TN_per_month_complete))
 
 
-hyp_dat<-left_join(hyp_month,dat)
+hyp_dat<-left_join(hyp_yr,spring_summer)
 hyp_dat<-filter(hyp_dat,max_Area_under_5_mgL>0) #remove zeroes for plotting
 
-ggplot(hyp_dat,aes(x=month_year,y=max_Area_under_5_mgL)) +
+ggplot(hyp_dat,aes(x=year,y=max_Area_under_5_mgL)) +
   geom_point()+
-  #geom_smooth(method = "lm")+
+  geom_smooth(method = "lm")+
   ylab('area under 5 mg/L dissolved oxygen')+
   xlab('date')+
   theme_minimal()
 
-ggplot(hyp_dat,aes(x=kg_N_TN_per_month/1000,y=max_Area_under_5_mgL,
-                   col=facility)) +
+ggplot(hyp_dat,aes(x=spring_summer_total/1000,y=max_Area_under_5_mgL)) +
   geom_point()+
-  ylab('area under 5 mg/L dissolved oxygen')+
-  xlab('total N load by outfall (1000 kg N/yr)')+
+  ylab(expression(paste0('area under 5 mg/L dissolved oxygen (',km^2,')'))) +
+  xlab('total Spring and summer N load (1,000 kg N/yr)')+
   theme_minimal()+
   ggtitle('Annual totals top 9 facilities Western LIS only')
 
-test<-filter(hyp_dat, !is.na(max_Area_under_5_mgL) & !is.na(kg_N_TN_per_month))
-filter(test, !is.na(max_Area_under_5_mgL))
-test1<-filter(hyp_dat, !is.na(max_Area_under_5_mgL))
-test1
+##test between winter + spring total load and hypoxia
+
+spring_winter<-as_tibble(full_ts) %>% 
+  mutate(year=year(month_year)) %>%
+  select(season, year, kg_N_TN_per_month_complete) %>%
+  filter(season=='spring' | season=='winter') %>%
+  group_by(year) %>%
+  summarise(spring_winter_total=sum(kg_N_TN_per_month_complete))
+
+
+hyp_dat<-left_join(hyp_yr,spring_winter)
+hyp_dat<-filter(hyp_dat,max_Area_under_5_mgL>0) #remove zeroes for plotting
+
+ggplot(hyp_dat,aes(x=year,y=max_Area_under_5_mgL)) +
+  geom_point()+
+  geom_smooth(method = "lm")+
+  ylab('area under 5 mg/L dissolved oxygen')+
+  xlab('date')+
+  theme_minimal()
+
+hyp_dat_no_na<-hyp_dat %>%
+  select(year,max_Area_under_5_mgL,spring_winter_total) %>%
+  mutate(spring_winter_total_.001=spring_winter_total/1000) %>%
+  drop_na()
+summary(lm(max_Area_under_5_mgL~spring_winter_total_.001, dat=hyp_dat_no_na))
+
+ggplot(hyp_dat,aes(x=spring_winter_total/1000,y=max_Area_under_5_mgL)) +
+  geom_point()+
+  geom_smooth(method='lm')+
+  ylab(expression('area under 5 mg/L dissolved oxygen '~(km^2))) +
+  xlab('total winter and spring N load (1,000 kg N/yr)')+
+  theme_minimal()+
+  ggtitle('Annual totals top 9 facilities Western LIS only')+
+  annotate('text', x=10500,y=2400,label='R2= 0.08', fontface=2)
+
+
+
+##
 
 hyp<-read_csv(file=here("data",'JOD_hyp_area_volume.csv'))
 hyp$year<-year(ym(hyp$date))
@@ -218,7 +333,6 @@ ggplot(hyp,aes(x=year,y=area_4.8mg_l_km2)) +
   #geom_smooth(method = "lm")+
   ylab('area under 5 mg/L dissolved oxygen')+
   xlab('date')+
-  y_date_range
   theme_minimal()
 
 
