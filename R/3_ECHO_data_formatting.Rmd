@@ -771,12 +771,27 @@ CT<-distinct(CT) #remove a few duplicate rows
 CT_summary<-CT %>%
   mutate(date=mdy(date)) %>%
   mutate(month_year=format(as.Date(date), "%Y-%m")) %>%
-  mutate(days = day(date)) %>%
+  mutate(days_date = day(date),
+         days_per_month = days_in_month(date)) %>%
   mutate(Outfall=rep(1)) %>%
   mutate(state=rep('CT'))%>%
   mutate(TN_kg_d=(if_else(TN_kg_d==3792403.8,1400/2.2,TN_kg_d))) %>% #imputing values for some obvious typos/errors in data
-  mutate(kg_N_TN_per_period=TN_kg_d*days) %>%
   group_by(permit,Outfall,month_year) %>%
+  arrange(date)%>%
+  mutate(date_sequence = row_number())%>%
+  mutate(day_interval= case_when( 
+    date_sequence == 1 ~ days_date,
+    date_sequence > 1 ~ days_date-dplyr::lag(days_date, n=1)
+    )) %>% #computing the number of days in each reporting date interval
+  mutate(TN_kg_interval=day_interval*TN_kg_d) %>% #calculating N load per interval
+  group_by(permit,Outfall,month_year,days_per_month) %>%
+  summarise(kg_N_TN_total=sum(TN_kg_interval),
+            day_interval_total=sum(day_interval)) %>%
+  mutate(permit_outfall=paste0(permit,"_",Outfall),
+         month_rate=kg_N_TN_total/day_interval_total) %>%
+  mutate(kg_N_TN_per_month=month_rate*days_per_month) %>%
+  mutate(key_2 = paste0(permit, "_", Outfall, "_", month_year)) 
+
   summarise(kg_N_TN_per_month=sum(kg_N_TN_per_period)) %>%
   mutate(permit_outfall=paste0(permit,"_",Outfall)) %>%
   mutate(key = paste0(permit, "_", Outfall, "_", month_year))
