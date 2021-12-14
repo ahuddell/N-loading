@@ -28,7 +28,7 @@ dup_keys
 # combine PCS and ECHO data-------------------------------------------------------------------------
 
 #looking at outliers
-ECHO_all%>%filter(kg_N_TN_per_month>1000000) %>% group_by(key) %>%
+ECHO_all%>%filter(kg_N_TN_per_month>10^6) %>% group_by(key) %>%
   summarize(key=first(key))
 
 #cleaning up values that are obvious typos
@@ -135,43 +135,54 @@ PCS_join<-PCS_all %>% filter(!key %in% dup_keys) #remove PCS data that also exis
 names(PCS_join)
 names(ECHO_all)
 PCS_join<-select(PCS_join,-quant_avg,-conc_avg,-permit_outfall_designator,-param,-days_per_month)
+ECHO_join<-select(ECHO_all, -key_2,-day_interval_total,-month_rate,-days_per_month,-kg_N_TN_total)
 
-
-dat_joined<-rbind(PCS_join, ECHO_all)
-
+names(PCS_join)
+names(ECHO_join)
+dat_joined<-rbind(PCS_join, ECHO_join)
 write_csv(dat_joined,'clean_PCS_ECHO_dat.csv')
 
 
 # filtering out small sources of N ----------------------------------------
 
 ##calculating median monthly loads through all time and selecting 15 top
-median_loads<-dat_joined %>%
+median_loads_all<-dat_joined %>%
   group_by(permit_outfall) %>%
-  summarise(median_kg_N_TN_mo=median(kg_N_TN_per_month, na.rm = T)) %>%
+  summarise(median_kg_N_TN_mo=median(kg_N_TN_per_month, na.rm = T),
+            facility=first(facility)) 
+
+median_loads<- median_loads_all%>%
   arrange (desc(median_kg_N_TN_mo)) %>%
   slice_head(n=15) 
-median_loads
 
-median_annual<-dat_joined %>%
+
+median_annual_all<-dat_joined %>%
   filter(!permit_outfall=='NH0001180_1'& kg_N_TN_per_month>1.2e+01) %>%# filtering out problematic permits
  # filter(!permit_outfall=='MA0110264_2'& kg_N_TN_per_month>3e+07) %>% #filtering out problematic permits
   group_by(permit_outfall, year=year(month_year)) %>%
   summarise(kg_N_TN_yr=sum(kg_N_TN_per_month, na.rm = T)) %>%
   group_by(permit_outfall)%>%
-  summarise(median_annual=median(kg_N_TN_yr, na.rm = T)) %>%
+  summarise(median_annual=median(kg_N_TN_yr, na.rm = T))
+
+median_annual_all<-join(median_annual_all)
+
+median_annual<-median_annual_all%>%
   arrange (desc(median_annual)) %>%
   slice_head(n=15) 
 median_annual
 
-median_loads$permit_outfall %in% median_annual$permit_outfall
-#the same 15 outfalls are listed as top polluters by both measures of median monthly and median annual loads
+
+median_loads$permit_outfall %in% median_loads$permit_outfall
+#all of the 15 outfalls are listed as top polluters by both measures of median monthly and median annual loads
 
 
 # join data and clean up facility names -----------------------------------
 
 top_15_permit_outfalls<-(median_annual$permit_outfall)
 
-dat<-filter(dat_joined, permit_outfall %in% top_15_permit_outfalls)
+dat<-dat_joined %>% 
+  filter(permit_outfall %in% top_15_permit_outfalls) %>%
+  filter(!permit_outfall %in% c("MA0101630_1", "MA0101508_10")) #removing MA sites which are too far east
 
 unique(dat$facility)
 
@@ -189,15 +200,16 @@ dat<-dat %>%
         )
 
 
-unique(dat$facility) #now there are only 15
+unique(dat$facility) #now there are only 18
+unique(dat$permit_outfall)
 
 #filtering out more points that are too far from Western Basin
-facilities_remove<-c("NEW HAVEN EAST WPCF","MATTABASSET WPCF","DANBURY WPCF",
-                     "BRISTOL WPCF","WATERBURY WPCF" ,"HARTFORD WPCF",
-                     "WATERBURY WPCF" )
+facilities_to_keep<-c("NYCDEP - WARD'S ISLAND WPCP","NYCDEP - HUNT'S POINT WPCP",
+                      "NYCDEP - TALLMAN ISLAND WPCP","NYCDEP - NEWTOWN CREEK WPCP",
+                      "NYCDEP - RED HOOK WPCP","NYCDEP - BOWERY BAY WPCP",)
 
 
-dat<-dat %>% filter(!facility %in% facilities_remove)
+dat<-dat %>% filter(facility %in% facilities_remove)
 
 unique(dat$facility) #now there are only 9
 
@@ -205,6 +217,9 @@ dat<-distinct(dat)
 
 write_csv(dat,
           file = here("data", 'combined_top9_WLIS_clean_dat.csv'))
+
+#approximately what proportion of total monthly loads are in the top 9?
+sum(median_loads_all)
 
 
 # map median monthly loads all data ------------------------------------------
@@ -233,107 +248,204 @@ huc8_names <- huc8%>%
   slice(1) %>%
   st_centroid() 
 
-#leaflet map
-bigm <- leaflet(huc8) %>%
-  addProviderTiles(providers$Stamen.TonerLite) %>%
-  addPolygons( fillColor = ~ "lightgrey",
-               weight = 1,
-               color = 'black',
-               opacity = 1,
-               fillOpacity = .7)  %>%
-  addCircleMarkers(
-    data = dat_sf$geometry,
-    col = 'red',
-    fillOpacity = .8,
-    radius = dat_sf$median_kg_N_TN_mo/10^4.5) %>%
-  # addLabelOnlyMarkers(data = huc8_names,
-  #                     lng = ~unlist(map(huc8_names$geometry,1)), 
-  #                     lat = ~unlist(map(huc8_names$geometry,2)), label = ~name,
-  #                     labelOptions = labelOptions(noHide = TRUE, 
-  #                                                 direction = 'top', textOnly = TRUE)) %>%
-   setView(lat = 42.5,
-          lng = -72.7,
-          zoom = 7) 
-
-bigm
-
-mapshot(bigm, file = here("maps", "median_monthly_load_big_map.png"))
+# #leaflet map
+# bigm <- leaflet(huc8) %>%
+#   addProviderTiles(providers$Stamen.TonerLite) %>%
+#   addPolygons( fillColor = ~ "lightgrey",
+#                weight = 1,
+#                color = 'black',
+#                opacity = 1,
+#                fillOpacity = .7)  %>%
+#   addCircleMarkers(
+#     data = dat_sf$geometry,
+#     col = 'red',
+#     fillOpacity = .8,
+#     radius = dat_sf$median_kg_N_TN_mo/10^4.5) %>%
+#   # addLabelOnlyMarkers(data = huc8_names,
+#   #                     lng = ~unlist(map(huc8_names$geometry,1)), 
+#   #                     lat = ~unlist(map(huc8_names$geometry,2)), label = ~name,
+#   #                     labelOptions = labelOptions(noHide = TRUE, 
+#   #                                                 direction = 'top', textOnly = TRUE)) %>%
+#    setView(lat = 42.5,
+#           lng = -72.7,
+#           zoom = 7) 
+# 
+# bigm
+# 
+# mapshot(bigm, file = here("maps", "median_monthly_load_big_map.png"))
 
 
 # map top 15 only ---------------------------------------------------------
-
-median_loads_top_9<-dat %>%
-  group_by(permit_outfall,LATITUDE83,LONGITUDE83,name) %>%
-  summarise(median_kg_N_TN_mo=median(kg_N_TN_per_month, na.rm = T)) 
-median_loads_top_9
-
-dat_sf2=st_as_sf(median_loads_top_9, 
-                coords=c("LONGITUDE83","LATITUDE83"),
-                crs=st_crs(huc8))
-
-#zoomed in map near western LIS
-#leaflet map
-top9m <- leaflet(huc8) %>%
-  addProviderTiles(providers$Stamen.TonerLite) %>%
-  addPolygons( fillColor = ~ "lightgrey",
-               weight = 1,
-               color = 'black',
-               opacity = 1,
-               fillOpacity = .7)  %>%
-  addCircleMarkers(
-    data = dat_sf2$geometry,
-    col = 'red',
-    fillOpacity = .8,
-    radius = dat_sf2$median_kg_N_TN_mo/10^4.5) %>%
-  # addLabelOnlyMarkers(data = huc8_names,
-  #                     lng = ~unlist(map(huc8_names$geometry,1)), 
-  #                     lat = ~unlist(map(huc8_names$geometry,2)), label = ~name,
-  #                     labelOptions = labelOptions(noHide = TRUE, 
-  #                                                 direction = 'top', textOnly = TRUE)) %>%
-  setView(lat = 40.8,
-          lng = -73.6 ,
-          zoom = 10) 
-
-top9m
-
-mapshot(top9m, file = here("maps", "median_monthly_load_top9.png"))
+# 
+# median_loads_top_9<-dat %>%
+#   group_by(permit_outfall,LATITUDE83,LONGITUDE83,name) %>%
+#   summarise(median_kg_N_TN_mo=median(kg_N_TN_per_month, na.rm = T))
+# median_loads_top_9
+# 
+# dat_sf2=st_as_sf(median_loads_top_9,
+#                 coords=c("LONGITUDE83","LATITUDE83"),
+#                 crs=st_crs(huc8))
+# 
+# #zoomed in map near western LIS
+# #leaflet map
+# top9m <- leaflet(huc8) %>%
+#   addProviderTiles(providers$Stamen.TonerLite) %>%
+#   addPolygons( fillColor = ~ "lightgrey",
+#                weight = 1,
+#                color = 'black',
+#                opacity = 1,
+#                fillOpacity = .7)  %>%
+#   addCircleMarkers(
+#     data = dat_sf2$geometry,
+#     col = 'red',
+#     fillOpacity = .8,
+#     radius = dat_sf2$median_kg_N_TN_mo/10^4.5) %>%
+#   # addLabelOnlyMarkers(data = huc8_names,
+#   #                     lng = ~unlist(map(huc8_names$geometry,1)),
+#   #                     lat = ~unlist(map(huc8_names$geometry,2)), label = ~name,
+#   #                     labelOptions = labelOptions(noHide = TRUE,
+#   #                                                 direction = 'top', textOnly = TRUE)) %>%
+#   setView(lat = 40.8,
+#           lng = -73.6 ,
+#           zoom = 10)
+# 
+# top9m
+# 
+# mapshot(top9m, file = here("maps", "median_monthly_load_top9.png"))
 
 # selecting final list ----------------------------------------------------
 
 # map top 9 only ---------------------------------------------------------
 
-median_loads_top_15<-dat %>%
-  group_by(permit_outfall,LATITUDE83,LONGITUDE83,name) %>%
-  summarise(median_kg_N_TN_mo=median(kg_N_TN_per_month, na.rm = T)) 
-median_loads_top_15
+# median_loads_top_15<-dat %>%
+#   group_by(permit_outfall,LATITUDE83,LONGITUDE83,name) %>%
+#   summarise(median_kg_N_TN_mo=median(kg_N_TN_per_month, na.rm = T))
+# median_loads_top_15
+# 
+# dat_sf=st_as_sf(median_loads_top_15,
+#                 coords=c("LONGITUDE83","LATITUDE83"),
+#                 crs=st_crs(huc8))
+# 
+# #zoomed in map near western LIS
+# #leaflet map
+# top15m <- leaflet(huc8) %>%
+#   addProviderTiles(providers$OpenStreetMap) %>%
+#   addPolygons( fillColor = ~ "lightgrey",
+#                weight = 1,
+#                color = 'black',
+#                opacity = 1,
+#                fillOpacity = .7)  %>%
+#   addCircleMarkers(
+#     data = dat_sf$geometry,
+#     col = 'red',
+#     fillOpacity = .8,
+#     radius = dat_sf$median_kg_N_TN_mo/10^4.5) %>%
+#   # addLabelOnlyMarkers(data = huc8_names,
+#   #                     lng = ~unlist(map(huc8_names$geometry,1)),
+#   #                     lat = ~unlist(map(huc8_names$geometry,2)), label = ~name,
+#   #                     labelOptions = labelOptions(noHide = TRUE,
+#   #                                                 direction = 'top', textOnly = TRUE)) %>%
+#   setView(lat = 41.5,
+#           lng = -73 ,
+#           zoom = 8)
+# 
+# top15m
+# 
+# mapshot(top15m, file = here("maps", "median_monthly_load_top15.png"))
+# 
 
-dat_sf=st_as_sf(median_loads_top_15, 
-                coords=c("LONGITUDE83","LATITUDE83"),
-                crs=st_crs(huc8))
+# write out shape files ---------------------------------------------------
+#read in the rest of the huc8 shapes 
+huc8_combined<-st_read(here('data','huc_8_dat_join','huc8_combined.shp'))
+#select columns of interest
+huc8_combined<- huc8_combined %>%
+  select(huc8, areasqkm,huc8,name,geometry)
 
-#zoomed in map near western LIS
-#leaflet map
-top15m <- leaflet(huc8) %>%
+er<-st_read(here('data','east-river','nyu_2451_34507.shp'))
+##need to manually add a polygon for the east river
+# er <- data.frame(long=c(-74.0146,-74.0094,-73.9943,
+#                         -73.9806,-73.9738,-73.9618,-73.9601,
+#                         -73.9459,-73.9209, -73.9113, #10
+#                         -73.8961, -73.8893,-73.8855, -73.8721,
+#                         -73.8604, -73.8508, -73.8440, -73.8515,
+#                         -73.8598, -73.8398, -73.8361, -73.8309,
+#                         -73.8292, -73.8216, -73.7952, -73.8127,
+#                         -73.8316, -73.8323, -73.8385, -73.8398,
+#                         -73.8419, -73.84607, -73.8471, -73.8584,
+#                         -73.8652, -73.8721, -73.8855, -73.8972,
+#                         -73.9116,-73.9257, -73.9418, -73.9428,
+#                         -73.9748, -73.9772, -73.9964, -74.0146),
+#                  lat = c(40.7002, 40.6892,40.7012,40.7054, 40.7007,
+#                          40.7223,40.7369,40.7600,40.7821, 40.7915, #10
+#                          40.7881, 40.7761, 40.7785, 40.7857, 
+#                          40.7652,40.7592, 40.7652, 40.7824, 
+#                          40.7865, 40.7974, 40.7909, 40.7891, 40.7959,
+#                          40.8006, 40.7951, 40.8141, 40.8099, 40.8055,
+#                          40.8065, 40.8138, 40.8187, 40.8120, 40.8060,
+#                          40.8058, 40.8110, 40.8011, 40.8016, 40.8073,
+#                          40.7961, 40.7824, 40.7844, 40.7772, 40.7379,
+#                          40.7124, 40.7082, 40.7002))
+# er <- rbind(er, er[1,])
+# 
+# 
+# 
+# er_poly <- st_sf(geometry=st_sfc(st_polygon(list(as.matrix(er)))), crs = st_crs(huc8_combined))
+# er_poly
+# 
+# er_poly<-er_poly %>%
+#   mutate(huc8=0,areasqkm=0, name="East River") %>%
+#   select(huc8, areasqkm,huc8,name,geometry)
+# er_poly
+
+#check polygon on map
+leaflet(er_poly) %>%
   addProviderTiles(providers$OpenStreetMap) %>%
-  addPolygons( fillColor = ~ "lightgrey",
-               weight = 1,
-               color = 'black',
-               opacity = 1,
-               fillOpacity = .7)  %>%
-  addCircleMarkers(
-    data = dat_sf$geometry,
-    col = 'red',
-    fillOpacity = .8,
-    radius = dat_sf$median_kg_N_TN_mo/10^4.5) %>%
-  # addLabelOnlyMarkers(data = huc8_names,
-  #                     lng = ~unlist(map(huc8_names$geometry,1)), 
-  #                     lat = ~unlist(map(huc8_names$geometry,2)), label = ~name,
-  #                     labelOptions = labelOptions(noHide = TRUE, 
-  #                                                 direction = 'top', textOnly = TRUE)) %>%
-  setView(lat = 41.5,
-          lng = -73 ,
-          zoom = 8) 
+  addPolygons()  
 
-top15m
+#check polygon on map
+leaflet(er) %>%
+  addProviderTiles(providers$OpenStreetMap) %>%
+  addPolygons()  
 
-mapshot(top15m, file = here("maps", "median_monthly_load_top15.png"))
+leaflet(huc8_combined) %>%
+  addProviderTiles(providers$OpenStreetMap) %>%
+  addPolygons() 
+
+er_poly<-st_crop(er, xmin=-73.981, ymin=40.701, xmax=-73.911, ymax=40.791)
+
+
+#check polygon on map
+leaflet(er_poly) %>%
+  addProviderTiles(providers$OpenStreetMap) %>%
+  addPolygons() 
+
+#combine data
+er_poly<-er_poly %>%
+  mutate(huc8=0,areasqkm=0, name="East River") %>%
+  select(huc8, areasqkm,huc8,name,geometry)
+er_poly
+
+huc8_combined<-rbind(huc8_combined,er_poly)
+
+#calculating monthly TN totals by watershed
+dat_summary<- dat %>%
+  group_by(name,month_year) %>%
+  summarise(kgN_huc8=sum(kg_N_TN_per_month,na.rm=T))
+
+#join huc spatial data to monthly totals
+N_load_huc_join<-left_join(dat_summary,huc8_combined)
+N_load_huc_join<-st_as_sf(N_load_huc_join)
+
+#sf::sf_use_s2(FALSE)
+
+#check polygon on map
+leaflet(N_load_huc_join) %>%
+  addProviderTiles(providers$OpenStreetMap) %>%
+  addPolygons()  
+
+#writing out huc_join for spatial app
+dir.create(here('data', 'huc_8_dat_join'))
+
+st_write(N_load_huc_join,
+         here('data','huc_8_dat_join','N_load_huc_join.shp'))
+
