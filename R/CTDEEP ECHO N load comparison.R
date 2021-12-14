@@ -42,10 +42,11 @@ CT$TN_kg_d<-ifelse(
 #   mutate(key_2 = paste0(permit, "_", Outfall, "_", month_year))
 
 #formatting CT data to join with rest of ECHO data
-CT_summary<-CT %>% 
+CT_summary1<-CT %>% 
   mutate(date=mdy(date)) %>%
   mutate(month_year=format(as.Date(date), "%Y-%m")) %>%
-  mutate(days_date = day(date)) %>%
+  mutate(days_date = day(date),
+         days_per_month = days_in_month(date)) %>%
   mutate(Outfall=rep(1)) %>%
   group_by(permit,Outfall,month_year) %>%
   arrange(date)%>%
@@ -55,15 +56,17 @@ CT_summary<-CT %>%
     date_sequence > 1 ~ days_date-dplyr::lag(days_date, n=1)
     )) #computing the number of days in each reporting date interval
 
-CT_summary<-CT_summary %>% 
+CT_summary2<-CT_summary1 %>% 
   mutate(TN_kg_interval=day_interval*TN_kg_d) %>%#calculating N load per interval
-  group_by(permit,Outfall,month_year) %>%
-  summarise(kg_N_TN_per_month=sum(TN_kg_interval),
+  group_by(permit,Outfall,month_year,days_per_month) %>%
+  summarise(kg_N_TN_total=sum(TN_kg_interval),
             day_interval_total=sum(day_interval)) %>%
-  mutate(permit_outfall=paste0(permit,"_",Outfall)) %>%
+  mutate(permit_outfall=paste0(permit,"_",Outfall),
+         month_rate=kg_N_TN_total/day_interval_total) %>%
+  mutate(kg_N_TN_per_month=month_rate*days_per_month) %>%
   mutate(key_2 = paste0(permit, "_", Outfall, "_", month_year)) 
 
-CT_summary
+CT_summary2
 
 ECHO_all<- ECHO_all %>%  
   mutate(month_year=format(as.Date(date), "%Y-%m")) %>%
