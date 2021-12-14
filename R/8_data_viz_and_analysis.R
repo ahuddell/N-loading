@@ -19,7 +19,7 @@ dat<-read_csv(file=here("data","combined_top9_WLIS_clean_dat.csv"))
 ggplot(dat,aes(x=month_year,y=kg_N_TN_per_month/1000)) +
   geom_point()+
   geom_line(col='darkgrey')+
-    ylab('monthly total N load by outfall (1000 kg N/mo)')+
+  ylab('monthly total N load by outfall (1000 kg N/mo)')+
   ggtitle('Monthly totals top 9 facilities Western LIS only')+
   xlab('Date')+
   facet_wrap(~facility, scales = "free")
@@ -34,12 +34,17 @@ ggplot(dat,aes(x=month_year,y=kg_N_TN_per_month/1000)) +
   facet_wrap(~facility)
 
 
-# annual sum --------------------------------------------------------------
+# annual sum to compare to LIS tracker--------------------------------------------------------------
+
+duplicates(dat)
+dat<-distinct(dat)
 
 annual_sum<-dat %>%
   group_by(permit_outfall, facility,year=year(month_year)) %>%
-  summarise(kg_N_TN_yr=sum(kg_N_TN_per_month, na.rm = T))
-
+  summarise(kg_N_TN_yr=sum(kg_N_TN_per_month, na.rm = T),
+            count_n=n()) %>%
+  arrange(desc(count_n))
+annual_sum
 
 ggplot(annual_sum,aes(x=year,y=kg_N_TN_yr/1000)) +
   geom_point()+
@@ -47,6 +52,39 @@ ggplot(annual_sum,aes(x=year,y=kg_N_TN_yr/1000)) +
   ylab('Annual total N load by outfall (1000 kg N/yr)')+
   ggtitle('Annual totals top 9 facilities Western LIS only')+
   facet_wrap(~facility)
+
+annual<-read_csv(here('data','annual_N_loads_QAQC.csv'))
+annual<-annual %>%
+  pivot_longer(cols=c(as.character(2015), as.character(2016), as.character(2017),
+                      as.character(2018),as.character(2019),as.character(2020)), 
+               names_to='year')
+
+annual$year<-format(annual$year, format='%Y')
+
+annual$key<-paste0(annual$NPDES_ID,annual$year)
+annual_sum$key<-paste0(substr(annual_sum$permit_outfall,1,9),annual_sum$year)
+
+join<-left_join(annual_sum, annual, by='key')
+
+join<-join %>% 
+  mutate(kg_N_TN_yr_LIS=value*365/2.205) %>%
+  mutate(difference=(kg_N_TN_yr-kg_N_TN_yr_LIS))
+
+
+ggplot(join,aes(x=kg_N_TN_yr/1000,y=kg_N_TN_yr_LIS/1000,col=facility.x, shape=facility.x))+
+  geom_point()+
+  geom_abline(slope=1,line_type='dashed', col='red')+
+  theme_minimal()+
+  scale_shape_manual(values=c(1:9))+
+  xlim(0,6000)+
+  xlab('ECHO/CTDEEP data')+
+  ylab('LIS tracker')
+
+
+outliers<-join %>%filter(abs(difference)>5000) %>%
+  arrange(desc(difference)) %>%
+  select(facility.x,year.x,kg_N_TN_yr,kg_N_TN_yr_LIS,difference)
+outliers
 
 
 # seasons -----------------------------------------------------------------
@@ -75,12 +113,13 @@ dat<-dat %>%
 dat$kg_N_TN_per_month<-round(dat$kg_N_TN_per_month,2)
 dat<- dat %>%
   select(permit, facility, key,permit_outfall, kg_N_TN_per_month, month_year,
-             outfall=Outfall,state, LATITUDE83,LONGITUDE83,huc8,name,season) %>%
+         outfall=Outfall,state, LATITUDE83,LONGITUDE83,huc8,name,season) %>%
   distinct()
 
 #drop day from month year format
 #dat_ts$month_year<-format(as.Date(dat_ts$month_year), "%Y-%m")
 dat$month_year<-yearmonth(dat$month_year)
+strptime(dat$month_year, "%Y %b")
 
 #create tsibble object
 dat_ts<-as_tsibble(dat, key = facility, index=month_year)
@@ -104,29 +143,43 @@ ggplot(ts_gaps, aes(x = facility, colour = facility)) +
 
 #impute 36-month running average 
 full_ts<- dat_ts %>%
-          group_by_key() %>% 
-          mutate(kg_N_TN_per_month_complete=kg_N_TN_per_month)%>%
-          fill_gaps(kg_N_TN_per_month_complete=mean(kg_N_TN_per_month, na.rm=T), 
-                    .full = TRUE)
+  group_by_key() %>% 
+  mutate(kg_N_TN_per_month_complete=kg_N_TN_per_month)%>%
+  fill_gaps(kg_N_TN_per_month_complete=mean(kg_N_TN_per_month, na.rm=T), 
+            .full = TRUE)
 
+#quantify how many data were imputed
+full_ts_n<-as_tibble(full_ts)%>% 
+            group_by(facility) %>% 
+             select(facility,kg_N_TN_per_month_complete) %>%
+            summarise(full_ts_n=n()) 
+dat_n<-dat %>%
+  group_by(facility) %>%
+  select(facility,kg_N_TN_per_month) %>%
+  summarise(dat_ts_n=n()) 
+n_join<-left_join(full_ts_n,dat_n)
+n_join<-n_join %>%
+        mutate(n_imputed=full_ts_n-dat_ts_n,
+               pct_imputed=n_imputed/full_ts_n*100)
+n_join
 #wanted to customize this more, but not working yet
-          # fill_gaps(kg_N_TN_per_month,.full = FALSE)#make NAs explicit by filling in missing months as "NA"
-          # mutate(imputed=is.na(kg_N_TN_per_month))%>% #noting which data are NA that we will impute
-          # group_by_key() %>% 
-          # mutate(rolling_mean_36 =
-          #          slide_dbl(kg_N_TN_per_month,
-          #                    ~ mean(., na.rm = TRUE),  
-          #                    size=36)
-          #        )%>%
-          # mutate(rolling_mean_3 =
-          #          slide_dbl(kg_N_TN_per_month,
-          #                    ~ mean(., na.rm = TRUE),  
-          #                    size=3)
-          # )%>%
-          # mutate(kg_N_TN_per_month_complete=
-          #          case_when(
-          #    is.na(kg_N_TN_per_month) ~ mean(kg_N_TN_per_month,na.rm=T), #impute rolling mean from 36 month window when needed
-          #   !is.na(kg_N_TN_per_month) ~ kg_N_TN_per_month))
+# fill_gaps(kg_N_TN_per_month,.full = FALSE)#make NAs explicit by filling in missing months as "NA"
+# mutate(imputed=is.na(kg_N_TN_per_month))%>% #noting which data are NA that we will impute
+# group_by_key() %>% 
+# mutate(rolling_mean_36 =
+#          slide_dbl(kg_N_TN_per_month,
+#                    ~ mean(., na.rm = TRUE),  
+#                    size=36)
+#        )%>%
+# mutate(rolling_mean_3 =
+#          slide_dbl(kg_N_TN_per_month,
+#                    ~ mean(., na.rm = TRUE),  
+#                    size=3)
+# )%>%
+# mutate(kg_N_TN_per_month_complete=
+#          case_when(
+#    is.na(kg_N_TN_per_month) ~ mean(kg_N_TN_per_month,na.rm=T), #impute rolling mean from 36 month window when needed
+#   !is.na(kg_N_TN_per_month) ~ kg_N_TN_per_month))
 
 #broken but want to use in future
 # mutate(kg_N_TN_per_month_complete=
@@ -161,19 +214,24 @@ ggplot(full_ts, aes(x=month_year, y=kg_N_TN_per_month_complete/1000)) +
 #     Nload_low = min(kg_N_TN_per_month, na.rm = TRUE)
 #   )
 
+dat$month_year<-as.Date.character(dat$month_year)
+
+write_csv(dat,
+          file = here("data", 'combined_top9_WLIS_full_ts.csv'))
+
 
 # seasons analysis --------------------------------------------------------
-dat_nonzero<-filter(full_ts,kg_N_TN_per_month_complete>0 &
+dat_nonzero<-filter(dat_ts,kg_N_TN_per_month>0 &
                       !is.na(permit_outfall) &
                       !is.na(season))
 
 hist(dat_nonzero$kg_N_TN_per_month_complete)
 
-meq1=lmer(log(kg_N_TN_per_month_complete) ~ season+ (1|permit_outfall), data=dat_nonzero, 
-              na.action=NULL)
+meq1=lmer(log(kg_N_TN_per_month) ~ season+ (1|permit_outfall), data=dat_nonzero, 
+          na.action=NULL)
 
 summary(meq1) 
-r.squaredGLMM(meq1)
+#r.squaredGLMM(meq1)
 
 #adding the intercept (fall) to all model fits
 coef <- data.frame(data = rep(fixef(meq1)[('(Intercept)')],4) +
