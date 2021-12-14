@@ -1,4 +1,5 @@
 
+
 # load libraries ----------------------------------------------------------
 library(shinydashboard)
 library(shinydashboardPlus)
@@ -19,260 +20,209 @@ library(viridis)
 
 
 # read data, objects, and functions ---------------------------------------
-# load in spatial dataframe with summarized monthly N loads by HUC8 watershed
-dat_sf <- st_read(here(
-  'data', 'huc_8_dat_join',
-  'N_load_huc_join.shp'
-))
+dat<- read_csv(here('data','combined_top9_WLIS_full_ts.csv'))
 
-dat_sf_annual<- dat_sf %>%
-  group_by(huc8, year=year(date)) %>%
-  summarise(kgN_huc8_yr=sum(kgN_huc8,na.rm=T))
+dat$month_year<-parse_datetime(dat$month_year, format = "%Y %b")
 
 
-dat_sf$year<-year(dat_sf$date)
-# same data as data frame object for plots
-dat <- as.data.frame(dat_sf)
+dat_annual<- dat %>%
+  group_by(facility, year=year(month_year), lon=LONGITUDE83, lat=LATITUDE83) %>%
+  summarise(kgN_facility_yr=sum(kg_N_TN_per_month,na.rm=T))
 
-# dat_WQ1<- read_csv(here(
-#   'data', 'DEEP_WQ_2021.csv'
-# ))
-# dat_WQ2<- read_csv(here(
-#   'data', 'DEEP_WQ_2015_present.csv'
-# ))
-# 
-# dat_WQ<-rbind(dat_WQ1,dat_WQ2)
-# rm(dat_WQ1)
-# rm(dat_WQ2)
-# #reducing size of dat_WQ for speed
-# dat_WQ<-dat_WQ %>%select(pH, oxygen_concentration_in_sea_water,End_Date) 
-# dat_WQ$oxygen_concentration_in_sea_water<-as.numeric(dat_WQ$oxygen_concentration_in_sea_water,na.rm=T)
-
-# dat_WQ$End_Date<-as.character(map(strsplit(dat_WQ$End_Date, split = "T"), 1))
-# dat_WQ$End_Date<-ymd(dat_WQ$End_Date)
-# 
-# dat_WQ1$End_Date<-as.character(map(strsplit(dat_WQ1$End_Date, split = "T"), 1))
-# dat_WQ1$End_Date<-ymd(dat_WQ1$End_Date)
-
-# color palette for choropleth map
-bins <- c(0,2500,5000,10000,200000,300000,140000)
-pal <- colorBin('Blues',bin=bins, na.color = '808080')
-# in future make this colorQuantiles with more categories
+dat_annual<- st_as_sf(dat_annual,coords=c('lon','lat'))
+dat_annual$radius<-(dat_annual$kgN_facility_yr)/10^6
 
 
-# # labels for map
-# labels <- sprintf(
-#   '<strong>%s</strong><br/>%g kg total N / month<sup>-1</sup>',
-#   dat_sf$name, dat_sf$kgN_h8
-# ) %>% lapply(htmltools::HTML)
 
-centroids <- dat_sf%>%
-  group_by(name) %>%
-  slice(1) %>%
-  st_centroid()
 
 # ui ----------------------------------------------------------------------
 ui <- function(request) {
   navbarPage(
     title = tags$a(
-     # href = 'https://www.longislandsoundstudy.net',
+      href = 'https://www.longislandsoundstudy.net',
       icon('fish', lib = 'font-awesome'),
-     # 'Long Island Sound Study'
-     'Draft app'
+      'Long Island Sound Study'
     ),
     theme = shinytheme('lumen'),
-    tabPanel(
-      'Point Source N loading',
+    # tabPanel(
+    #   'Point Source N loading',
       fluidRow(
         height = 4,
         tags$style(type = 'text/css', '.selectize-input{ z-index: 999; }'),
-        h3('N loading'),
-        p('This is a data visualization tool summarizing monthly point source N loading in the Long Island Sound, and summer month hypoxia area and volume. Results from each analysis are in separate tabs'
+        h3('This tool summarizes monthly point source 
+           N loading from top polluters to the Western section of the Long Island Sound'
         ),
         column(
-          width = 6,
-          sliderInput(
-            inputId = 'year',
-            label='Year',
-            min = min(dat_sf$year),
-            max = max(dat_sf$year),
-            value = min(dat_sf$year),
-           timeFormat = '%Y',
-           sep = '',
-          step = 1)
-        ),
-        column(width = 6,
+          width = 5,
+              ),
+        column(
+          width = 7,
+          height=4,
           selectizeInput(
-            inputId ='watershed_name',
-            label = 'Watershed',
-            choices = dat_sf$name,
+            inputId = 'facility',
+            label = 'Facility',
+            choices = unique(dat_annual$facility),
             multiple = T,
-            selected = 'Housatonic'))
-        ),
+            width='100%',
+            selected = "NYCDEP - NEWTOWN CREEK WPCP"
+          )
+        )
+      ),
       fluidRow(splitLayout(
-          cellWidths = c('50%', '50%'),
-          leafletOutput('map'),
-          plotOutput('plot1')))),
-  
-# #Tab 2
-#   tabPanel(
-#     'pH and DO',
-#     fluidRow(
-#       height = 4,
-#       tags$style(type = 'text/css', '.selectize-input{ z-index: 999; }'),
-#       h3('N loading'),
-#       p('This is a data visualization tool summarizing CT DEEP '
-#       ),
-#       column(
-#         width = 6,
-#         selectizeInput(
-#           inputId = 'WQ_param',
-#           label='Water Quality parameter',
-#           choices =c('pH',
-#           'Dissolved Oxygen mg/L'),
-#           selected='pH')
-#       ),
-#       column(
-#         width = 6,
-#         selectizeInput(
-#           inputId ='watershed_name',
-#           label='Watershed',
-#           choices = dat_sf$name,
-#           multiple = T,
-#           selected = 'Housatonic'
-#         )
-#       )
-#     ),
-#     fluidRow(
-#       splitLayout(
-#         cellWidths = c('50%', '50%'),
-#         plotOutput('plot2'),
-#         plotOutput('plot3')))
-#   )
-)}
+        cellWidths = c('40%', '60%'),
+        leafletOutput('map'),
+        plotOutput('plot1')
+      )),
+      # fluidRow(
+      #   column(
+      #     width = 8,
+      #     height=4,
+      #     selectizeInput(
+      #       inputId = 'facility2',
+      #       label = 'Facility',
+      #       choices = unique(dat_annual$facility),
+      #       multiple = T,
+      #       width='100%',
+      #       selected = "NYCDEP - NEWTOWN CREEK WPCP"
+      #     )
+      # )),
+    
+    hr(), # add spacer
+    
+    fluidRow(splitLayout(
+      cellWidths = c('40%', '60%'),
+      column(
+        width = 4,
+     # Button
+      downloadButton("downloadData", "Download raw data")
+      ),
+      plotOutput('plot3')
+    )),
 
+     # )
+  )
+}
 
 
 # server ------------------------------------------------------------------
 
 # Server
 server <- function(input, output, session) {
-
   ## Tab 1
- # Reactive expression for the data subsetted to what the user selected
-  filtered_year <- reactive({
-    dat_sf_annual %>% filter(year == input$year) 
-  })
-  
-
-  # filteredLabels <- reactive({
-  #   filter(
-  #     sprintf(
-  #       '<strong>%s</strong><br/>%g kg total N / month<sup>-1</sup>',
-  #       dat$name,
-  #       dat$kgN_h8
-  #     ) %>% lapply(htmltools::HTML)
-  #   )
+  # # Reactive expression for the data filtered to what the user selected
+  # filtered_year <- reactive({
+  #   dat_annual %>% filter(year == input$year)
   # })
-
+  
+  #mouseover labels
+  labs <- as.list(dat_annual$facility)
+  
   # render base map
   output$map <- renderLeaflet({
-    leaflet(dat_sf_annual) %>%
-      addProviderTiles(providers$Esri.WorldPhysical) %>%
-      addLegend(
-        pal = pal,
-        values = ~ density,
-        opacity = 0.7,
-        title = NULL,
-        position = 'bottomright') %>%
-      fitBounds(~ unname(st_bbox(dat_sf_annual)[1]),
-                ~ unname(st_bbox(dat_sf_annual)[2]),
-                ~ unname(st_bbox(dat_sf_annual)[3]),
-                ~ unname(st_bbox(dat_sf_annual)[4])) %>%
-
-      addLabelOnlyMarkers(
-        data = centroids,
-        lng = ~ unlist(map(centroids$geometry, 1)),
-        lat = ~ unlist(map(centroids$geometry, 2)),
-        label = ~ (name),
-        labelOptions = labelOptions(textsize = 6,
-          noHide = T,
-          direction = 'center',
-          textOnly = TRUE)
-      )
+    leaflet(dat_annual) %>%
+      addProviderTiles(providers$Esri.WorldStreetMap) %>%
+      addCircleMarkers(data = dat_annual$geometry,
+                       radius=(dat_annual$radius),
+                       popup = paste('Facility:',dat_annual$facility),
+                       label = paste('Facility:',lapply(labs, HTML))
+                       )
   })
-
-  # add reactive choropleth layer
-  observe({
-    leafletProxy('map', data = filtered_year()) %>%
-      #clearShapes() %>%
-      addPolygons(
-        fillColor = ~ pal(kgN_huc8_yr),
-        weight = 2,
-        color = 'black',
-        opacity = 1,
-        fillOpacity = 0.7)
-  })
-
-
+  
   # Reactive expression for the data subsetted to what the user selected
-  filtered_watershed_name <- reactive({
+  filtered_facility_name <- reactive({
     dat %>%
-      filter(name == input$watershed_name)
+    filter(facility %in% input$facility)
   })
-
-
+  
   # render plot1
   output$plot1 <- renderPlot({
-    ggplot(
-      data = filtered_watershed_name(),
-      aes(x = year, y = kgN_h8, col = name,
-          fill=name)) +
+    ggplot(data = filtered_facility_name(),
+      aes(x = month_year, y = kg_N_TN_per_month/1000, col = facility,
+          fill=facility)) +
       ylab(expression(paste(
-        'Monthly N load (kg N ',ha^-1,yr^-1,')')))+
+        'Monthly N load (1,000 kg N ',ha^-1,yr^-1,')')))+
       xlab('Date')+
-      geom_point(alpha = 0.7) +
-      geom_smooth(method = 'loess', se = T) +
+      geom_line(alpha = 0.7) +
+      geom_smooth(method = 'lm', se = FALSE, linetype='dashed', alpha=.4, size=.6) +
       theme_minimal() +
       theme(text = element_text(size=18),
             legend.position = 'bottom')+
-      scale_color_viridis(name='Watershed', discrete=TRUE) +
-      scale_fill_viridis(name='Watershed', discrete=TRUE)
+      scale_color_viridis(name='Facility', discrete=TRUE) +
+      scale_fill_viridis(name='Facility', discrete=TRUE)#+
+      #facet_wrap(~facility)
+   })
+  # render plot3
+  output$plot3 <- renderPlot({
+    ggplot() +
+      geom_jitter(data=filtered_facility_name(), aes(x=as.factor(season), y=log(kg_N_TN_per_month),
+                                                     col = facility, fill=facility),width=.05,alpha=.4) +
+      geom_violin(data=filtered_facility_name(), aes(x=as.factor(season), y=log(kg_N_TN_per_month)),fill='lightgrey', color='lightgrey',alpha=.4)+
+      # geom_pointrange(data=meq1_outputs,
+      #                 aes(x=season,y=coef,ymin = coef-SE, ymax =  coef+SE),
+      #                 col='red',
+      #                 size=1) +
+      theme_minimal()+
+      xlab('Monthly loads by season')+
+      ylab('ln (monthly total N load \nby outfall (kg N/mo))')+
+      #theme(axis.text.x = element_text(angle = 60, hjust=1))+
+      ggtitle('Monthly loads grouped by season')+
+      theme(text = element_text(size=18),
+            legend.position = 'bottom',
+            plot.title = element_text(hjust = 0.5)
+      )+
+      scale_color_viridis(name='Facility', discrete=TRUE) +
+      scale_fill_viridis(name='Facility', discrete=TRUE)
+    #facet_wrap(~facility)
   })
+  
+  # Downloadable csv of selected dataset 
+  output$downloadData <- downloadHandler(
+    filename = function() {paste("NY_CT_WWTP_data", " ",Sys.Date(),".csv",sep="")},
+    content = function(file) {
+      write.csv(dat, 
+                file, 
+                row.names = FALSE)
+    }
+  )
+  
+  # #reactive expression to filter seasonal data
+  # filtered_dat_nonzero <-reactive({
+  #   dat %>%
+  #     filter(facility %in% input$facility) %>%
+  #     filter(kg_N_TN_per_month>0 &
+  #              !is.na(permit_outfall) &
+  #              !is.na(season))
+  # })
 
-  # ## Tab 2
+  # # Reactive expression for the data subsetted to what the user selected
+  # filtered_facility_name <- reactive({
+  #   dat %>%
+  #     filter(facility %in% input$facility2)
+  # })
   # 
-  #     output$plot2 <- renderPlot({
-  #       yvarnames <- c('pH','oxygen_concentration_in_sea_water')
-  #               ggplot(data = dat_WQ1,
-  #              aes_string(x = 'End_Date', y = yvarnames[input$WQ_param])) +
-  #         geom_point() +
-  #                 labs(x = "Year", y = input$y) +
-  #         geom_smooth(method = 'loess', se = T) +
-  #         theme_minimal() +
-  #         theme(text = element_text(size=18),
-  #               legend.position = 'bottom')
-  #     })
-  #   
-  # 
-  # 
-  #     # render plot3
-  # # output$plot3 <- renderPlot(
-  # #   ggplot(
-  # #     data = filtered_watershed_name(),
-  # #     aes(x = date, y = kgN_h8, col = name,
-  # #         fill=name)) +
-  # #     ylab(expression(paste(
-  # #       'Monthly N load (kg N ',ha^-1,yr^-1,')')))+
-  # #     xlab('Date')+
-  # #     geom_point(alpha = 0.7) +
-  # #     geom_smooth(method = 'loess', se = T) +
-  # #     theme_minimal() +
-  # #     theme(text = element_text(size=18),
-  # #           legend.position = 'bottom')+
-  # #     scale_color_viridis(name='Watershed', discrete=TRUE) +
-  # #     scale_fill_viridis(name='Watershed', discrete=TRUE)
-  # # )
+
+  # #linear mixed effect model
+  # lmer(log(kg_N_TN_per_month) ~ season+ (1|permit_outfall), data=dat_nonzero, 
+  #      na.action=NULL)
+  
+  # # render plot3
+  # output$plot3 <- renderPlot({
+  #   ggplot() +
+  #   geom_jitter(data=filtered_dat_nonzero(), aes(x=as.factor(season), y=log(kg_N_TN_per_month)),width=.05,alpha=.4,)+
+  #              # col = facility, fill=facility) +
+  #   geom_violin(data=filtered_dat_nonzero(), aes(x=as.factor(season), y=log(kg_N_TN_per_month)),fill='lightgrey', color='lightgrey',alpha=.4)+
+  #   # geom_pointrange(data=meq1_outputs,
+  #   #                 aes(x=season,y=coef,ymin = coef-SE, ymax =  coef+SE),
+  #   #                 col='red',
+  #   #                 size=1) +
+  #   theme_minimal()+
+  #   xlab('Monthly loads by season')+
+  #   ylab('ln (monthly total N load by outfall (kg N/mo))')+
+  #   theme(axis.text.x = element_text(angle = 60, hjust=1))+
+  #   ggtitle('Monthly loads grouped by season')#+
+  #   #facet_wrap(~facility)
+  # })
+
 }
 
 
@@ -280,4 +230,3 @@ server <- function(input, output, session) {
 
 #options(shiny.reactlog = TRUE)
 shinyApp(ui, server)
-
