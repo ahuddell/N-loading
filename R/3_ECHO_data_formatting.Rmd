@@ -209,7 +209,7 @@ dat <- dat %>%
   filter(!permit_outfall_designator == 'NY0026131_1_M')  %>% #this one I'm not sure, but N was more common 
     filter(!permit_outfall_designator == 'NY0026204_1_M')  %>% #this one I'm not sure, but N was more common 
   filter(!permit_outfall_designator == 'NY0026239_1_M')  %>% #this one I'm not sure, but N was more common 
-
+    filter(!permit_outfall_designator == 'NY0026158_1_M')  %>% #this one I'm not sure, but N was more common 	
   filter(!permit_outfall_designator == 'NH0101052_1_B')  %>% #this one was quarterly vs. subweekly 
   drop_na((value)) #drop rows with no value reported
 
@@ -220,8 +220,8 @@ dat$Units <- droplevels(dat)$Units # dropping unused levels
 dat$`Statistical Base Long Desc` <- droplevels(dat)$`Statistical Base Long Desc` #dropping unused levels 
 dat$Designator <- droplevels(dat)$Designator # dropping unused levels 
 
-length(unique(as.character(dat$permit_outfall))) #212 permit/outfalls
-length(levels(as.factor(dat$key))) #43,297 keys
+length(unique(as.character(dat$permit_outfall))) #139 permit/outfalls
+length(levels(as.factor(dat$key))) #24,045 keys
 
 
 ```
@@ -417,13 +417,12 @@ N_load<- dat %>%
 #check if there are duplicates per key and one parameter
 dup<-N_load %>%
   group_by(key)%>%
-  filter(param_simple=="NH3") %>%
+  filter(param_simple=="NO3NH3") %>%
   tally() %>%
   arrange(desc(n))
 dup
-#there are no more duplicates here, but there are multiple parameters per key 
 
-unique(N_load$param_simple)
+#there are no more duplicates here, but there are multiple parameters per key 
 
 #pivoting the TN and NH3 observations into wide format and removing flow and concentration columns
 N_load_a<-N_load %>%
@@ -436,17 +435,7 @@ N_load_a<-N_load %>%
          kg_N_NO3NO2_per_month=NO3NO2,
          kg_N_NO3NH3_per_month=NO3NH3,
          kg_N_NO3_per_month=NO3,
-         kg_N_NO2_per_month=NO2)# %>%
-  # group_by(date,facility,permit,Outfall,key, permit_outfall,state)%>%
-  # #for some reason the pivot was not summarizing these columns properly, so
-  # #this manual summary should make the observations tidy
-  # summarize(kg_N_TN_per_month=max(kg_N_TN_per_month),
-  #           kg_N_NH3_per_month=max(kg_N_NH3_per_month),
-  #           kg_N_TKN_per_month=max(kg_N_TKN_per_month),
-  #           kg_N_NO3NH3_per_month=max(kg_N_NO3NH3_per_month),
-  #           kg_N_NO3NO2_per_month=max(kg_N_NO3NO2_per_month),
-  #           kg_N_NO3_per_month=max(kg_N_NO3_per_month),
-  #           kg_N_NO2_per_month=max(kg_N_NO2_per_month))
+         kg_N_NO2_per_month=NO2)
 
 names(N_load_a)
 
@@ -462,7 +451,7 @@ length(unique(as.character(N_load_a$key)))
 #there are the same number of rows before and after the pivot
 
 
-length(unique(as.character(N_load_a$permit_outfall))) #76 outfalls included here
+length(unique(as.character(N_load_a$permit_outfall))) #73 outfalls included here
 
 
 ```
@@ -509,7 +498,7 @@ dup<-keys_with_N %>%
   tally() %>%
   filter(n>1)%>%
   arrange(desc(n))
-dup #there are lots of flow rate duplicates from multiple parameters reported for the same date, but we will select flow parameters-- 50050 first, then 00056, then 74076, then 0058
+dup #there are no longer flow rate duplicates
 
 dup<-keys_with_N %>%
   group_by(key) %>%
@@ -606,7 +595,6 @@ dups3<-flow_N_concentration %>%
   arrange(desc(n))
 dups3 #there are no more duplicates
 
-#this does not always seem to work. see how kg_N_NH3_per_month is not working for key CT0100455_1_2015-11 which has NH3 data
 #calculating N loads
 N_load_b <- flow_N_concentration %>%
   mutate(kg_N_TN_per_month = mg_N_per_L_TN * million_L_per_month_flow_rate) %>%
@@ -677,10 +665,10 @@ N_load_b$kg_N_TN_per_month <-  ifelse(!is.na(N_load_b$kg_N_TN_per_month),
 
 #remove other unnecessary columns
 N_load_b<- N_load_b %>%
-  select(-kg_N_sum_per_month, -permit_outfall_designator,- permit_freq)
+  select(-kg_N_sum_per_month)
 
 names(N_load_b)
-length(unique(as.character(N_load_b$permit_outfall))) #111 outfalls included here
+length(unique(as.character(N_load_b$permit_outfall))) #23 outfalls included here
 
 #for N_load_a
 #combine the different N columns; use total N when reported, or the sum of all other
@@ -714,12 +702,20 @@ N_load_a_2<-N_load_a %>%
 
 N_load_a<-rbind(N_load_a_1, N_load_a_2)
 
-
+#calculate sum of other forms of N
 N_load_a$kg_N_sum_per_month <-
-  ifelse(!is.na(N_load_a$kg_N_TKN_per_month),
-    (N_load_a$kg_N_TKN_per_month + N_load_a$kg_N_NO3_per_month +        N_load_a$kg_N_NO2_per_month + N_load_a$kg_N_NO3NO2_per_month +  N_load_a$kg_N_NO3NH3_per_month),
-    (N_load_a$kg_N_NH3_per_month + N_load_a$kg_N_NO3_per_month +   N_load_a$kg_N_NO2_per_month +  N_load_a$kg_N_NO3NO2_per_month +
-        N_load_a$kg_N_NO3NH3_per_month )
+  ifelse(
+    !is.na(N_load_a$kg_N_TKN_per_month),
+    (
+      N_load_a$kg_N_TKN_per_month + N_load_a$kg_N_NO3_per_month +
+        N_load_a$kg_N_NO2_per_month + N_load_a$kg_N_NO3NO2_per_month +
+        N_load_a$kg_N_NO3NH3_per_month
+    ),
+    (
+      N_load_a$kg_N_NH3_per_month + N_load_a$kg_N_NO3_per_month +
+        N_load_a$kg_N_NO2_per_month +  N_load_a$kg_N_NO3NO2_per_month +
+        N_load_a$kg_N_NO3NH3_per_month
+    )
   )
 
 
@@ -751,12 +747,10 @@ N_load<-rbind(N_load_a,N_load_b)
 
 N_load<-drop_na(N_load,kg_N_TN_per_month)
 
-length(unique(as.character(N_load$permit_outfall))) #88 outfalls with/without locations
-nrow(N_load) #7863
+length(unique(as.character(N_load$permit_outfall))) #76 outfalls with/without locations
+nrow(N_load) #8423
 
 summary(N_load$kg_N_TN_per_month)
-
-#write_csv(N_load,here("data","ECHO_CT_data.csv"))
 
 ```
 
@@ -774,7 +768,6 @@ CT_summary<-CT %>%
   mutate(days_date = day(date),
          days_per_month = days_in_month(date)) %>%
   mutate(Outfall=rep(1)) %>%
-  mutate(state=rep('CT'))%>%
   mutate(TN_kg_d=(if_else(TN_kg_d==3792403.8,1400/2.2,TN_kg_d))) %>% #imputing values for some obvious typos/errors in data
   group_by(permit,Outfall,month_year) %>%
   arrange(date)%>%
@@ -790,26 +783,29 @@ CT_summary<-CT %>%
   mutate(permit_outfall=paste0(permit,"_",Outfall),
          month_rate=kg_N_TN_total/day_interval_total) %>%
   mutate(kg_N_TN_per_month=month_rate*days_per_month) %>%
-  mutate(key_2 = paste0(permit, "_", Outfall, "_", month_year)) 
+  mutate(key= paste0(permit, "_", Outfall, "_", month_year)) %>%
+  select(-month_rate, -day_interval_total)
 
-  summarise(kg_N_TN_per_month=sum(kg_N_TN_per_period)) %>%
-  mutate(permit_outfall=paste0(permit,"_",Outfall)) %>%
-  mutate(key = paste0(permit, "_", Outfall, "_", month_year))
+
 
 names(CT)
 permit_facility<-CT %>%
-  group_by(permit,facility) %>%
+  group_by(permit) %>%
   summarize(permit = first(permit),
             facility = first(facility))
-
+nrow(CT_summary) #17,063
 CT_summary<-left_join(CT_summary, permit_facility)
+nrow(CT_summary) #17,063
+
+CT_summary<-CT_summary %>% select(-kg_N_TN_total,-days_per_month)
 
 N_load<- N_load %>%
   mutate(month_year=format(as.Date(date), "%Y-%m")) %>%
-  select(-date,-kg_N_sum_per_month)
+  select(-date)
 N_load$Outfall<-as.character(N_load$Outfall)
 
 CT_summary$Outfall<-as.character(CT_summary$Outfall)
+CT_summary$state<-rep('CT')
 
 names(N_load)
 names(CT_summary)
@@ -818,11 +814,11 @@ names(CT_summary)
 N_load_CT_join <- rbind(N_load, CT_summary)
 N_load_CT_join<-distinct(N_load_CT_join)
 
-dim(N_load_CT_join) #27038
-dim(N_load) #9114
-dim(CT_summary) #17,924
-length(unique(as.character(N_load_CT_join$permit_outfall))) #157 outfalls with locations
-length(unique(as.character(N_load_CT_join$key))) #26,177 keys
+dim(N_load_CT_join) #25.486
+dim(N_load) #8423
+dim(CT_summary) #17,063
+length(unique(as.character(N_load_CT_join$permit_outfall))) #156 outfalls with locations
+length(unique(as.character(N_load_CT_join$key))) #25,486 keys
 
 
 ```
@@ -853,23 +849,23 @@ outfall_locations$permit_outfall <-
          "_",
          outfall_locations$PERM_FEATURE_NMBR)
 #join locations based on permit number and outfall number
-dim(N_load_CT_join) #27,038
-length(unique(N_load_CT_join$permit_outfall)) #157 outfalls with/without locations
-length(unique(N_load_CT_join$key)) #26,177 keys
+dim(N_load_CT_join) #25.486
+length(unique(N_load_CT_join$permit_outfall)) #156 outfalls with/without locations
+length(unique(N_load_CT_join$key)) #25,486 keys
 
 
 N_load_out <- left_join(N_load_CT_join, outfall_locations, by = "permit_outfall")
-dim(N_load_out) #27038
-length(unique(as.character(N_load_out$permit_outfall))) #157 outfalls with locations
-length(unique(as.character(N_load_out$key))) #26177 keys
+dim(N_load_out) #25.486
+length(unique(as.character(N_load_out$permit_outfall))) #156 outfalls with locations
+length(unique(as.character(N_load_out$key))) #24,486 keys
 #the data are the same dimensions before and after the join
 #check for NA's in latitude
-summary(N_load_out$LATITUDE83) #560 missing values
+summary(N_load_out$LATITUDE83) #492 missing values
 missing_latitude<-filter(N_load_out, is.na(LATITUDE83))
 missing_latitude<-N_load_out %>% filter(is.na(LATITUDE83)) %>%
   group_by(permit_outfall)%>%
   summarize(LATITUDE83=first(LATITUDE83))
-missing_latitude #7 outfalls missing coordinates
+missing_latitude #6 outfalls missing coordinates
 
 #impute missing values based on other outfalls from same permit
 N_load_out<-N_load_out %>% 
@@ -878,7 +874,6 @@ N_load_out<-N_load_out %>%
     permit_outfall=='MA0101630_9' ~ 42.190537,
     permit_outfall=='NH0000744_1' ~ 44.323049,
     permit_outfall== 'NY0021750_2' ~ 40.948583,	
-    permit_outfall== 'NY0023311_2' ~ 40.895333,
     permit_outfall== 'NY0206644_2' ~ 40.924472,	
     permit_outfall== 'NY0206644_3' ~ 40.951917)) %>%
    mutate(impute_lon= case_when(
@@ -886,7 +881,6 @@ N_load_out<-N_load_out %>%
     permit_outfall=='MA0101630_9' ~ -72.609792,
     permit_outfall=='NH0000744_1' ~ -71.560259,
     permit_outfall== 'NY0021750_2' ~ -73.075639,
-    permit_outfall== 'NY0023311_2' ~ -73.227722,
     permit_outfall== 'NY0206644_2' ~ -73.121139,
     permit_outfall== 'NY0206644_3' ~ -73.073139))
 
@@ -940,10 +934,10 @@ N_load_out$permit_outfall
 #join locations based on permit number and outfall number
 dat_join<- left_join(N_load_out, HUC8_outfall_locations, by = "permit_outfall")
 
-dim(N_load_out) #27,038
-dim(dat_join) #27,038
-length(unique(as.character(dat_join$permit_outfall))) #157 outfalls with locations
-length(unique(as.character(dat_join$key))) #26,177 keys
+dim(N_load_out) #25.486
+dim(dat_join) #25.486
+length(unique(as.character(dat_join$permit_outfall))) #156 outfalls with locations
+length(unique(as.character(dat_join$key))) #25,486 keys
 #the number of keys and outfalls with locations are the same as in the last step
 
 #check for NA's in huc8s
@@ -963,7 +957,6 @@ impute_hucs<-data.frame(
     'NY0206644_2',
     'NY0206644_3',
     'NY0021750_2',
-    'NY0023311_2',
     'MA0101508_7',
     'MA0101630_9',
     'NH0000744_1'),
@@ -972,7 +965,6 @@ impute_hucs<-data.frame(
     'East River',
     'Long Island Sound',
     'East River',
-    'Long Island Sound',
     'Long Island Sound',
     'Long Island Sound',
     'Long Island Sound',
@@ -995,6 +987,11 @@ dat_join <- dat_join %>%
            ))
 #check for NA's in huc8s
 sum(is.na(dat_join$name))
+
+#checking duplicates
+dim(dat_join)
+dat_join<-distinct(dat_join)
+dim(dat_join)
 
 write_csv(dat_join,
           file = here("data", "ECHO_data_clean.csv"))
