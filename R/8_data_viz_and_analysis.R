@@ -87,24 +87,6 @@ outliers<-join %>%filter(abs(difference)>5000) %>%
 outliers
 
 
-# seasons -----------------------------------------------------------------
-
-dat<-dat %>%
-  mutate(season= case_when(
-    month(month_year)=='12' ~ 'winter',
-    month(month_year)=='1' ~ 'winter',
-    month(month_year)=='2' ~ 'winter',
-    month(month_year)=='3' ~ 'spring',
-    month(month_year)=='4' ~ 'spring',
-    month(month_year)=='5' ~ 'spring',
-    month(month_year)=='6' ~ 'summer',
-    month(month_year)=='7' ~ 'summer',
-    month(month_year)=='8' ~ 'summer',
-    month(month_year)=='9' ~ 'fall',
-    month(month_year)=='10' ~ 'fall',
-    month(month_year)=='11' ~ 'fall'
-  ))
-
 
 
 # impute time series missing data -----------------------------------------
