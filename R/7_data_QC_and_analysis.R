@@ -247,9 +247,16 @@ dat_joined_2 %>% filter(state!="CT") %>%
 
 #############################################################
 #correcting some records manually
+#remove the suspiciously low values from one permit
+MA0101681<- dat_joined_2 %>% 
+  filter(permit_outfall == 'MA0101681_3') %>%
+  filter(kg_N_TN_per_month>10000)  #I couldn't pinpoint what was incorrect about the earlier dates, but based on the NPDES permits, they were too low
 
-dat_joined_2<- dat_joined_2 %>% 
-  filter(!permit_outfall == 'MA0101681_3' &  kg_N_TN_per_month<10000) #I couldn't pinpoint what was incorrect about the earlier dates, but based on the NPDES permits, they were too low
+#remove that permit from dataset then rejoin the filtered 
+dat_joined_2<-dat_joined_2 %>% 
+  filter(!permit_outfall == 'MA0101681_3') 
+
+dat_joined_2<-rbind(dat_joined_2,MA0101681)
 
 #manually correcting permits with marked outliers=T that were real declines in N loads
 dat_joined_2$outlier<-ifelse(
