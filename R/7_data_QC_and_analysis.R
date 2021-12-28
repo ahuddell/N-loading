@@ -256,6 +256,9 @@ dat_joined_2$outlier<-ifelse(
   dat_joined_2$permit_outfall == 'NY0021750_2' &  dat_joined_2$outlier==TRUE,
   dat_joined_2$outlier==FALSE, dat_joined_2$outlier) #this seems to be a real decline--probably a treatment plant upgrade
 
+#removing one duplicated month (there were both 5/30 and 5/31 dates reported)
+dat_joined_2<- filter(dat_joined_2,key=='NY0021822_1_2003-05-30')
+
 
 #impute seasonal mean for outlier values
 dat_joined_2$kg_N_TN_per_month<-ifelse(
@@ -336,6 +339,7 @@ ggplot(dat,aes(x=month_year,y=kg_N_TN_per_month))+
 
 
 dat<-distinct(dat)
+
 
 #write out clean results
 write_csv(dat,
