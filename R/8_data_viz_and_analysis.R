@@ -3,11 +3,11 @@ library(lubridate)
 library(here)
 library(lme4)
 library(lmerTest)
-library(imputeTS)
+#library(imputeTS)
 library(zoo)
 library(tsibble)
-library(slider)
-library(car)
+#library(slider)
+#library(car)
 
 
 #load data
@@ -25,20 +25,30 @@ dat<-read_csv(file=here("data","clean_PCS_ECHO_dat.csv"))
 
 # impute time series missing data -----------------------------------------
 
-#first removing duplicates
+#rounding monthly N loads
 dat$kg_N_TN_per_month<-round(dat$kg_N_TN_per_month,2)
-dat<- dat %>%
-  select(permit, facility, key,permit_outfall, kg_N_TN_per_month, month_year,
-         outfall=Outfall,state, LATITUDE83,LONGITUDE83,huc8,name,season) %>%
-  distinct()
+
 
 #drop day from month year format
 #dat_ts$month_year<-format(as.Date(dat_ts$month_year), "%Y-%m")
 dat$month_year<-yearmonth(dat$month_year)
-strptime(dat$month_year, "%Y %b")
+#strptime(dat$month_year, "%Y %b")
+
+#calculate rolling mean in separate column
+dat<-dat %>%
+  group_by(permit_outfall) %>% 
+  arrange(month_year) %>%
+  mutate(rollingmean=rollmean(kg_N_TN_per_month, k=6, fill=NA)) #calculate rolling mean
+
+ggplot(dat, aes(x=kg_N_TN_per_month, y=rollingmean))+
+  geom_point()+
+  geom_abline(slope=1)+
+  annotate('text', x=10^5,y=10^5.8,label='R2= 0.99', fontface=2)
+
+summary(lm(dat$rollingmean~dat$kg_N_TN_per_month))
 
 #create tsibble object
-dat_ts<-as_tsibble(dat, key = facility, index=month_year)
+dat_ts<-as_tsibble(dat, key = permit_outfall, index=month_year)
 dat_ts
 
 #inspecting missingingness
@@ -47,7 +57,7 @@ scan_gaps(dat_ts)
 ts_gaps<-count_gaps(dat_ts)
 
 #visualizing time gaps
-ggplot(ts_gaps, aes(x = facility, colour = facility)) +
+ggplot(ts_gaps, aes(x = permit_outfall)) +
   geom_linerange(aes(ymin = .from, ymax = .to)) +
   geom_point(aes(y = .from)) +
   geom_point(aes(y = .to)) +
@@ -57,83 +67,89 @@ ggplot(ts_gaps, aes(x = facility, colour = facility)) +
   theme(legend.position = "bottom")
 
 
-#impute 36-month running average 
+# filling in time gaps and calculating rolling mean -----------------------
+
+
+#impute missing values with previous estimate in time series
 full_ts<- dat_ts %>%
+  select(permit_outfall,month_year,kg_N_TN_per_month) %>% #removing unnecessary columns
   group_by_key() %>% 
-  mutate(kg_N_TN_per_month_complete=kg_N_TN_per_month)%>%
-  fill_gaps(kg_N_TN_per_month_complete=mean(kg_N_TN_per_month, na.rm=T), 
-            .full = TRUE)
+  fill_gaps( .full = TRUE)%>% #fill in NAs in missing months
+  mutate(rollingmean=rollmean(kg_N_TN_per_month, k=6, fill=NA)) %>% #calculate rolling mean
+  mutate(imputed_missing_value=if_else(is.na(kg_N_TN_per_month), 1, 0)) %>% #designate imputed values as "1"
+  mutate(kg_N_TN_per_month_complete=if_else(is.na(kg_N_TN_per_month), 
+                                            rollingmean, 
+                                            kg_N_TN_per_month))%>% #create new column to add imputed data
+  fill(kg_N_TN_per_month_complete, .direction = "downup") #fill gaps in rolling means with last recorded, or if not available, then the next recorded value in time series
+
+summary(full_ts$kg_N_TN_per_month_complete) #there are no NAs
+
 
 #quantify how many data were imputed
 full_ts_n<-as_tibble(full_ts)%>% 
-            group_by(facility) %>% 
-             select(facility,kg_N_TN_per_month_complete) %>%
-            summarise(full_ts_n=n()) 
+  group_by(permit_outfall) %>% 
+  select(permit_outfall,kg_N_TN_per_month_complete) %>%
+  summarise(full_ts_n=n()) 
 dat_n<-dat %>%
-  group_by(facility) %>%
-  select(facility,kg_N_TN_per_month) %>%
+  group_by(permit_outfall) %>%
+  select(permit_outfall,kg_N_TN_per_month) %>%
   summarise(dat_ts_n=n()) 
 n_join<-left_join(full_ts_n,dat_n)
 n_join<-n_join %>%
-        mutate(n_imputed=full_ts_n-dat_ts_n,
-               pct_imputed=n_imputed/full_ts_n*100)
+  mutate(n_imputed=full_ts_n-dat_ts_n,
+         pct_imputed=n_imputed/full_ts_n*100)
 n_join
-#wanted to customize this more, but not working yet
-# fill_gaps(kg_N_TN_per_month,.full = FALSE)#make NAs explicit by filling in missing months as "NA"
-# mutate(imputed=is.na(kg_N_TN_per_month))%>% #noting which data are NA that we will impute
-# group_by_key() %>% 
-# mutate(rolling_mean_36 =
-#          slide_dbl(kg_N_TN_per_month,
-#                    ~ mean(., na.rm = TRUE),  
-#                    size=36)
-#        )%>%
-# mutate(rolling_mean_3 =
-#          slide_dbl(kg_N_TN_per_month,
-#                    ~ mean(., na.rm = TRUE),  
-#                    size=3)
-# )%>%
-# mutate(kg_N_TN_per_month_complete=
-#          case_when(
-#    is.na(kg_N_TN_per_month) ~ mean(kg_N_TN_per_month,na.rm=T), #impute rolling mean from 36 month window when needed
-#   !is.na(kg_N_TN_per_month) ~ kg_N_TN_per_month))
 
-#broken but want to use in future
-# mutate(kg_N_TN_per_month_complete=
-#          case_when(
-#            #(is.na(kg_N_TN_per_month) & is.na(rolling_mean_3)) ~ rolling_mean_36, #impute rolling mean from 36 month window when needed
-#            #(is.na(kg_N_TN_per_month) & !is.na(rolling_mean_3))~ rolling_mean_3, #impute mean from only 3 months when possible
-#            !is.na(kg_N_TN_per_month) ~kg_N_TN_per_month))
+#rejoin other data to completed time series
+#organizing permit, facility, Outfall, and state by each permit_outfall to rejoin 
+data_to_rejoin<- dat %>%
+  group_by(permit_outfall) %>%
+  summarise(facility=first(facility),
+            permit=first(permit),
+            outfall=first(Outfall),
+            state=first(state)) %>%
+  mutate(facility_outfall=paste(facility,outfall))
+full_ts<-left_join(full_ts,data_to_rejoin)
 
-summary(full_ts$kg_N_TN_per_month)
-summary(full_ts$kg_N_TN_per_month_complete) #this imputes the mean across all time
+#plot time series
 
-
-
-ggplot(full_ts, aes(x=month_year, y=kg_N_TN_per_month_complete/1000)) +
-  #geom_point()+
-  geom_line()+
-  ylab('monthly total N load by outfall (1000 kg N/mo)')+
-  ggtitle('Monthly totals top 9 facilities Western LIS only; data gaps imputed')+
+#plot CT facilities only
+full_ts %>%
+  filter(state=="CT") %>%
+  ggplot(aes(x=month_year, y=kg_N_TN_per_month_complete/1000)) +
+  geom_line(col="grey10")+
+  geom_point(aes(col=as.factor(imputed_missing_value)),  shape = ".")+
+  ylab('monthly total N load by outfall (1,000 kg N/mo)')+
+  ggtitle('Monthly totals with data gaps imputed')+
+  theme(legend.position = "top")+
   xlab('Date')+
   theme_minimal()+
-  facet_wrap(~facility)
+  scale_color_manual(name="data origin", 
+                     labels=c("original value", "imputed value"), 
+                     values = c('dodgerblue4','tomato4'))+
+  theme(legend.position = "top")+
+  facet_wrap(~facility_outfall, scale="free_y", labeller = label_wrap_gen(20))
 
-
-
-
-# #sample of data summary by time index
-# dat_ts%>% 
-#   group_by_key() %>%
-#   index_by(year = year(month_year)) %>% 
-#   summarise(
-#     Nload_high = max(kg_N_TN_per_month, na.rm = TRUE),
-#     Nload_low = min(kg_N_TN_per_month, na.rm = TRUE)
-#   )
-
-dat$month_year<-as.Date.character(dat$month_year)
+#plot non-CT facilities 
+full_ts %>%
+  #filter(permit_outfall=="CT0024694_1" | permit_outfall== "NY0109584_1") %>%
+  filter(state!="CT") %>%
+  ggplot(aes(x=month_year, y=kg_N_TN_per_month_complete/1000)) +
+  geom_line(col="grey10")+
+  geom_point(aes(col=as.factor(imputed_missing_value)),  shape = ".")+
+  ylab('monthly total N load by outfall (1,000 kg N/mo)')+
+  ggtitle('Monthly totals with data gaps imputed')+
+  theme(legend.position = "top")+
+  xlab('Date')+
+  theme_minimal()+
+  scale_color_manual(name="data origin", 
+                     labels=c("original value", "imputed value"), 
+                     values = c('dodgerblue4','tomato4'))+
+  theme(legend.position = "top")+
+  facet_wrap(~facility_outfall, scale="free_y", labeller = label_wrap_gen(20))
 
 write_csv(dat,
-          file = here("data", 'combined_top9_WLIS_full_ts.csv'))
+          file = here("data", 'full_ts.csv'))
 
 
 # seasons analysis --------------------------------------------------------
