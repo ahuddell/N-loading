@@ -148,9 +148,24 @@ full_ts %>%
   theme(legend.position = "top")+
   facet_wrap(~facility_outfall, scale="free_y", labeller = label_wrap_gen(20))
 
-write_csv(dat,
-          file = here("data", 'full_ts.csv'))
+# write_csv(dat,
+#           file = here("data", 'full_ts.csv'))
+# 
+# zip("full_time_series.zip", "full_ts.csv")
+# 
+# full_ts.csv
 
+zipfunc <- function(df, zippedfile) {
+  # write temp csv
+  temp_filename = 'complete_time_series_with_missing_data_imputed.csv'
+  write.csv(df, file=temp_filename)
+  # zip temp csv
+  zip(zippedfile,temp_filename)
+  # delete temp csv
+  unlink(temp_filename)
+}
+
+zipfunc(df=dat,zippedfile=here("data",'complete_time_series_with_missing_data_imputed.zip'))
 
 # seasons analysis --------------------------------------------------------
 dat_nonzero<-filter(dat_ts,kg_N_TN_per_month>0 &
