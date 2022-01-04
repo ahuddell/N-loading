@@ -24,8 +24,7 @@ library(sf)
 
 col_specifications<-('ccffffffffffddff') #compact string to specify column types
 
-dat<-read_csv(file=here("data","Echo_LIS_complete_data_bowery_added.csv"), 
-                     col_types = col_specifications)
+dat<-read_csv(file=unzip(zipfile=here("data","Echo_LIS_complete_data.zip")), col_types = col_specifications)
 
 dat<-distinct(dat) #remove a few duplicate rows
 

@@ -21,7 +21,7 @@ library(tidyverse)
 library(lubridate)
 library(here)
 
-dat<-read_csv(file=here('data','PCS_LIS_watershed_data.csv'))
+dat<-read_csv(file=unzip(zipfile=here("data","PCS_LIS_complete_data.zip")))
 
 #read in CT data from N exchange program
 CT<-read_csv(file=here("data","CT_NX_data.csv"))
