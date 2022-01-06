@@ -113,40 +113,88 @@ full_ts<-left_join(full_ts,data_to_rejoin)
 
 #plot time series
 
-#plot CT facilities only
+#plot CT facilities only with imputed vs. not in different color
 full_ts %>%
   filter(state=="CT") %>%
-  ggplot(aes(x=month_year, y=kg_N_TN_per_month_complete/1000)) +
-  geom_line(col="grey10")+
-  geom_point(aes(col=as.factor(imputed_missing_value)),  shape = ".")+
+  ggplot(aes(x=as.Date(month_year), y=kg_N_TN_per_month_complete/1000)) +
+  geom_point(aes(col=as.factor(imputed_missing_value)),  shape = 20)+
   ylab('monthly total N load by outfall (1,000 kg N/mo)')+
-  ggtitle('Monthly totals with data gaps imputed')+
+  ggtitle('Monthly totals with data gaps imputed for CT plants only')+
   theme(legend.position = "top")+
   xlab('Date')+
+  scale_x_date(breaks=as.Date(x=c("1995-01-01", "2005-01-01", "2015-01-01"),
+                              format = "%Y-%m-%d"), 
+               date_labels='%Y')+
   theme_minimal()+
   scale_color_manual(name="data origin", 
                      labels=c("original value", "imputed value"), 
                      values = c('dodgerblue4','tomato4'))+
   theme(legend.position = "top")+
+  guides(color = guide_legend(override.aes = list(size=3)))+
   facet_wrap(~facility_outfall, scale="free_y", labeller = label_wrap_gen(20))
 
-#plot non-CT facilities 
+#plot CT facilities only with simple lines
 full_ts %>%
-  #filter(permit_outfall=="CT0024694_1" | permit_outfall== "NY0109584_1") %>%
-  filter(state!="CT") %>%
-  ggplot(aes(x=month_year, y=kg_N_TN_per_month_complete/1000)) +
-  geom_line(col="grey10")+
-  geom_point(aes(col=as.factor(imputed_missing_value)),  shape = ".")+
+  filter(state=="CT") %>%
+  ggplot(aes(x=as.Date(month_year), y=kg_N_TN_per_month_complete/1000)) +
+  geom_line()+
   ylab('monthly total N load by outfall (1,000 kg N/mo)')+
-  ggtitle('Monthly totals with data gaps imputed')+
+  ggtitle('Monthly totals with data gaps imputed for CT plants only')+
   theme(legend.position = "top")+
   xlab('Date')+
+  scale_x_date(breaks=as.Date(x=c("1995-01-01", "2005-01-01", "2015-01-01"),
+                              format = "%Y-%m-%d"), 
+               date_labels='%Y')+
   theme_minimal()+
   scale_color_manual(name="data origin", 
                      labels=c("original value", "imputed value"), 
                      values = c('dodgerblue4','tomato4'))+
   theme(legend.position = "top")+
+  guides(color = guide_legend(override.aes = list(size=3)))+
   facet_wrap(~facility_outfall, scale="free_y", labeller = label_wrap_gen(20))
+
+
+#plot non-CT facilities with imputed vs. not in different color
+full_ts %>%
+  filter(state!="CT") %>%
+  ggplot(aes(x=as.Date(month_year), y=kg_N_TN_per_month_complete/1000)) +
+  geom_point(aes(col=as.factor(imputed_missing_value)),  shape = 20)+
+  ylab('monthly total N load by outfall (1,000 kg N/mo)')+
+  ggtitle('Monthly totals with data gaps imputed for all other states')+
+  theme(legend.position = "top")+
+  xlab('Date')+
+  scale_x_date(breaks=as.Date(x=c("1995-01-01", "2005-01-01", "2015-01-01"),
+                        format = "%Y-%m-%d"), 
+               date_labels='%Y')+
+  theme_minimal()+
+  scale_color_manual(name="data origin", 
+                     labels=c("original value", "imputed value"), 
+                     values = c('dodgerblue4','tomato4'))+
+  theme(legend.position = "top")+
+  guides(color = guide_legend(override.aes = list(size=3)))+
+  facet_wrap(~facility_outfall, scale="free_y", labeller = label_wrap_gen(20))
+
+
+#plot non-CT facilities with simple lines
+full_ts %>%
+  filter(state!="CT") %>%
+  ggplot(aes(x=as.Date(month_year), y=kg_N_TN_per_month_complete/1000)) +
+  geom_line(col="grey10")+
+  ylab('monthly total N load by outfall (1,000 kg N/mo)')+
+  ggtitle('Monthly totals with data gaps imputed for all other states')+
+  theme(legend.position = "top")+
+  xlab('Date')+
+  scale_x_date(breaks=as.Date(x=c("1995-01-01", "2005-01-01", "2015-01-01"),
+                              format = "%Y-%m-%d"), 
+               date_labels='%Y')+
+  theme_minimal()+
+  scale_color_manual(name="data origin", 
+                     labels=c("original value", "imputed value"), 
+                     values = c('dodgerblue4','tomato4'))+
+  theme(legend.position = "top")+
+  guides(color = guide_legend(override.aes = list(size=3)))+
+  facet_wrap(~facility_outfall, scale="free_y", labeller = label_wrap_gen(20))
+
 
 # write_csv(dat,
 #           file = here("data", 'full_ts.csv'))
