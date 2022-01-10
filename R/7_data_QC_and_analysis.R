@@ -34,108 +34,6 @@ dup_keys<-ECHO_key %>%
   filter(key %in% unlist(PCS_key))
 dup_keys
 
-# manual outlier correction-------------------------------------------------------------------------
-
-
-# #looking at outliers
-# ECHO_all%>%filter(kg_N_TN_per_month>10^6) %>% group_by(key) %>%
-#   summarize(key=first(key))
-# 
-#cleaning up values that are obvious typos
-#CT0100323_1_1999-08-31 clearly has a typo in the N concentration--impute the mean of that year maybe?
-#CT0100447_1_2005-02-28 seems to have entered the flow rate 1000X higher than it should; for parameter 50050 - Flow, in conduit or thru treatment plant
-#NY0026204_1_2015-08-31 seems to have entered the load 10X higher that it should
-# 
-# 
-# ECHO_all$kg_N_TN_per_month<-ifelse(
-#   ECHO_all$key == 'NY0026204_1_2015-08-31', ECHO_all$kg_N_TN_per_month/10, ECHO_all$kg_N_TN_per_month) #load looked like it was 10X too large
-# 
-# ECHO_all$kg_N_TN_per_month<-ifelse(
-#   ECHO_all$key == 'NY0026204_1_2015-08-31', ECHO_all$kg_N_TN_per_month/10, ECHO_all$kg_N_TN_per_month) #load looked like it was 10X too large
-# 
-# 
-#   
-#   
-# #editing outliers 
-# PCS_all$kg_N_TN_per_month<-ifelse(
-#   PCS_all$key == 'MA0110264_2_2003-11-30',
-#   PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
-# 
-# PCS_all$kg_N_TN_per_month<-ifelse(
-#   PCS_all$key == 'NH0001180_1_1991-09-30',
-#   PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
-# 
-# PCS_all$kg_N_TN_per_month<-ifelse(
-#   PCS_all$key == 'NH0001180_1_1992-04-30',
-#   PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
-# 
-# PCS_all$kg_N_TN_per_month<-ifelse(
-#   PCS_all$key == 'NH0001180_1_1999-11-30',
-#   PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
-# 
-# PCS_all$kg_N_TN_per_month<-ifelse(
-#   PCS_all$key == 'NH0001180_1_1991-07-31',
-#   PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
-# 
-# PCS_all$kg_N_TN_per_month<-ifelse(
-#   PCS_all$key == 'NH0001180_1_1991-08-31',
-#   PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
-# 
-# PCS_all$kg_N_TN_per_month<-ifelse(
-#   PCS_all$key == 'NH0001180_1_1991-12-31',
-#   PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
-# 
-# PCS_all$kg_N_TN_per_month<-ifelse(
-#   PCS_all$key == 'NH0001180_1_1991-11-30',
-#   PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
-# 
-# PCS_all$kg_N_TN_per_month<-ifelse(
-#   PCS_all$key == 'NH0001180_1_1991-10-31',
-#   PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
-# 
-# PCS_all$kg_N_TN_per_month<-ifelse(
-#   PCS_all$key == 'NH0001180_1_1992-03-31',
-#   PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
-# 
-# PCS_all$kg_N_TN_per_month<-ifelse(
-#   PCS_all$key == 'NH0001180_1_1991-06-30',
-#   PCS_all$kg_N_TN_per_month/10^6, PCS_all$kg_N_TN_per_month) #flow looked like it was 10^6 too large
-# 
-
-#points to clean up for ECHO CT data
-#not needed currently since we are using CTDEEP data instead
-
-# impute_value<-as.numeric(ECHO_all %>% filter(permit_outfall=='CT0100323_1' & date>'1999-06-30'
-#                                              & date <'1999-10-31') %>% #grabbing months before and after August
-#                            filter(!date=='1999-08-31') %>% #removing problematic date
-#                            summarize(mean(kg_N_TN_per_month)))
-# ECHO_all$kg_N_TN_per_month<-ifelse(
-#   ECHO_all$key == 'CT0100323_1_1999-08-31', impute_value, ECHO_all$kg_N_TN_per_month)
-# ECHO_all$kg_N_TN_per_month<-ifelse(
-#       ECHO_all$key == 'CT0100323_1_1999-08-31', impute_value, ECHO_all$kg_N_TN_per_month)
-# ECHO_all$kg_N_TN_per_month<-ifelse(
-#   ECHO_all$key == 'CT0100447_1_2005-02-28', ECHO_all$kg_N_TN_per_month/1000, ECHO_all$kg_N_TN_per_month) #flow looked like it was 1000X too large
-# ECHO_all$kg_N_TN_per_month<-ifelse(
-#   ECHO_all$key == 'CT0100447_1_2005-02-28', ECHO_all$kg_N_TN_per_month/10, ECHO_all$kg_N_TN_per_month)
-# ECHO_all$kg_N_TN_per_month<-ifelse(
-#   ECHO_all$key == 'CT0100447_1_2005-02-28', ECHO_all$kg_N_TN_per_month/1000, ECHO_all$kg_N_TN_per_month)
-# ECHO_all$kg_N_TN_per_month<-ifelse(
-#   ECHO_all$key == 'CT0100447_1_2005-02-28', ECHO_all$kg_N_TN_per_month/1000, ECHO_all$kg_N_TN_per_month) #flow looked like it was 1000X too large
-# ECHO_all$kg_N_TN_per_month<-ifelse(
-#   ECHO_all$key == 'CT0100455_1_2018-04-30', ECHO_all$kg_N_TN_per_month/1000, ECHO_all$kg_N_TN_per_month) #flow looked like it was 1000X too large
-
-
-# 
-# #clean up a few problematic observations
-# 
-# ECHO_CT_ouliers<- ECHO_all %>%
-#   filter(state=='CT') %>%
-#   filter(TN_kg_d >3000000)
-# 
-#          TN_lbs_d/2.205, TN_kg_d) #this converts the lbs/day amount for a few outliers in flow and concentration that are clearly wrong
-# 
-
-
 
 # combine PCS and ECHO data-------------------------------------------------------------------------
 
@@ -245,8 +143,10 @@ dat_joined_2 %>% filter(state!="CT") %>%
   geom_point()+
   facet_wrap(~permit_outfall, scale="free")
 
-#############################################################
-#correcting some records manually
+
+# correcting some records manually ----------------------------------------
+
+
 #remove the suspiciously low values from one permit
 MA0101681<- dat_joined_2 %>% 
   filter(permit_outfall == 'MA0101681_3') %>%
@@ -284,7 +184,10 @@ dat_joined_2 %>% filter(state!="CT") %>%
   geom_point()+
   facet_wrap(~permit_outfall, scale="free")
 
-#cleaning up conflicting names
+
+# cleaning up conflicting names -------------------------------------------
+
+
 dat<-dat_joined_2 %>% 
   mutate(facility=
         case_when(
