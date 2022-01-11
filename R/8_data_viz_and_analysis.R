@@ -13,15 +13,6 @@ library(tsibble)
 #load data
 dat<-read_csv(file=here("data","clean_PCS_ECHO_dat.csv"))
 
-# monthly plots -----------------------------------------------------------
-
-# ggplot(dat,aes(x=month_year,y=kg_N_TN_per_month/1000)) +
-#   geom_point()+
-#   geom_line(col='darkgrey')+
-#   ylab('monthly total N load by outfall (1000 kg N/mo)')+
-#   xlab('Date')+
-#   facet_wrap(~facility, scales = "free")
-
 
 # impute time series missing data -----------------------------------------
 
@@ -30,9 +21,7 @@ dat$kg_N_TN_per_month<-round(dat$kg_N_TN_per_month,2)
 
 
 #drop day from month year format
-#dat_ts$month_year<-format(as.Date(dat_ts$month_year), "%Y-%m")
 dat$month_year<-yearmonth(dat$month_year)
-#strptime(dat$month_year, "%Y %b")
 
 #calculate rolling mean in separate column
 dat<-dat %>%
@@ -84,34 +73,50 @@ full_ts<- dat_ts %>%
 
 summary(full_ts$kg_N_TN_per_month_complete) #there are no NAs
 
-
 #quantify how many data were imputed
-full_ts_n<-as_tibble(full_ts)%>% 
-  group_by(permit_outfall) %>% 
-  select(permit_outfall,kg_N_TN_per_month_complete) %>%
-  summarise(full_ts_n=n()) 
-dat_n<-dat %>%
-  group_by(permit_outfall) %>%
-  select(permit_outfall,kg_N_TN_per_month) %>%
-  summarise(dat_ts_n=n()) 
-n_join<-left_join(full_ts_n,dat_n)
-n_join<-n_join %>%
-  mutate(n_imputed=full_ts_n-dat_ts_n,
-         pct_imputed=n_imputed/full_ts_n*100)
-n_join
+((table(full_ts$imputed_missing_value)[[2]])/
+(table(full_ts$imputed_missing_value)[[1]]+table(full_ts$imputed_missing_value)[[2]]))*100
+#53% of the data
 
-#rejoin other data to completed time series
+
+# rejoin other data to completed time series ------------------------------
+
+
 #organizing permit, facility, Outfall, and state by each permit_outfall to rejoin 
 data_to_rejoin<- dat %>%
   group_by(permit_outfall) %>%
   summarise(facility=first(facility),
             permit=first(permit),
             outfall=first(Outfall),
-            state=first(state)) %>%
+            state=first(state),
+            huc8=first(huc8),
+            name=first(name)) %>%
   mutate(facility_outfall=paste(facility,outfall))
+
+#rejoin to full_ts
 full_ts<-left_join(full_ts,data_to_rejoin)
 
-#plot time series
+#add column about outlier imputation 
+data_to_rejoin2<-dat %>%
+  select(permit_outfall, month_year, outlier) %>%
+  mutate(outlier= case_when(outlier == "FALSE" ~ 0,
+                            outlier == "TRUE" ~ 1)
+         )
+
+#rejoin to full_ts
+full_ts<-left_join(full_ts,data_to_rejoin2)
+names(full_ts)
+
+
+
+# join TMDL zones to data -------------------------------------------------
+
+TMDL_zones<-read_csv(file=here("data",'TMDL_zones.csv'))
+
+full_ts<-left_join(full_ts,TMDL_zones)
+
+
+# plot time series --------------------------------------------------------
 
 #plot CT facilities only with imputed vs. not in different color
 full_ts %>%
