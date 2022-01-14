@@ -1,4 +1,4 @@
-﻿CRUISE,date,area_2mg_l_km2,area_3mg_l_km2,area_4.8mg_l_km2,vol_2mg_l_km2,vol_3mg_l_km2,vol_4.8mg_l_km2
+﻿CRUISE,mnth_year,area_2mg_l_km2,area_3mg_l_km2,area_4.8mg_l_km2,vol_2mg_l_km3,vol_3mg_l_km3,vol_4.8mg_l_km3
 WQAUG91,1991-08,180,484,2236,0.16,3.87,80.19
 WQAUG92,1992-08,0,496,1464,0,1.66,33.73
 WQSEP93,1993-09,408,500,1444,3.58,8.22,70.24
