@@ -414,7 +414,6 @@ keys_with_N
 
 dup<-keys_with_N %>%
   group_by(key) %>%
-  #filter(!param_simple == 'flow_rate') %>%
   drop_na(mg_N_per_L)%>%
   group_by(key, param_simple)%>%
   tally() %>%
@@ -423,12 +422,6 @@ dup<-keys_with_N %>%
 dup #there aren't any duplicates after excluding NAs
 
 
-dup<-flow_cleaned %>%
-  group_by(key, param_simple)%>%
-  tally() %>%
-  filter(n>1)%>%
-    arrange(desc(n))
-dup #there aren't any duplicates after excluding NAs
 
 #separate out concentration data so that we can drop keys empty concentrations
 N_params<- keys_with_N %>%
@@ -478,90 +471,12 @@ group_by(key) %>%
   ) %>%
   distinct() 
  
-# # #this filters the groups of rows at the grouped (key) level that do include the 50050  parameter
-# flow_50 <- keys_with_N %>%
-#   #  group_by(key) %>%
-#   # filter(!any(!is.na(kg_per_month)))%>% #this removes any keys which do report in N loads
-#   # # filter(is.na(kg_per_month)) %>%
-#   group_by(key) %>%
-#   filter(any(param == '50050 - Flow, In Conduit Or Thru Treatment Plant')) %>% #this filters a group of rows at the grouped (key) level, and selects first this most common param
-#   filter(param == '50050 - Flow, In Conduit Or Thru Treatment Plant')
-#
-
-# # here we separate different flow parameters to remove duplicates observations
-# 
-# # #this filters the groups of rows at the grouped (key) level that do include the 50050  parameter
-# flow_50 <- keys_with_N %>%
-#   #  group_by(key) %>%
-#   # filter(!any(!is.na(kg_per_month)))%>% #this removes any keys which do report in N loads
-#   # # filter(is.na(kg_per_month)) %>%
-#   group_by(key) %>%
-#   filter(any(param == '50050 - Flow, In Conduit Or Thru Treatment Plant')) %>% #this filters a group of rows at the grouped (key) level, and selects first this most common param
-#   filter(param == '50050 - Flow, In Conduit Or Thru Treatment Plant')
-# 
-# #next, this filters the groups of rows at the grouped (key) level that do not include the 50050 param, and selects 00056
-# flow_56 <-keys_with_N %>%
-#   # group_by(key) %>%
-#   # filter(!any(!is.na(kg_per_month)))%>% #this removes any keys which do report in N loads
-#   # # filter(is.na(kg_per_month)) %>%
-#   group_by(key) %>%
-#   filter(!any(param == '50050 - Flow, In Conduit Or Thru Treatment Plant')) %>%
-#   filter(param == '00056 - Flow Rate')
-# 
-# #finally, we collect all nitrogen related parameters to bind to the flow observations
-# N_params<- keys_with_N %>%
-# group_by(key) %>%
-#   filter(!any(!is.na(kg_per_month)))%>% #this removes any keys which do report in N loads
-#     # filter(is.na(kg_per_month)) %>%
-#   filter(!param == '50050 - Flow, In Conduit Or Thru Treatment Plant') %>%
-#   filter(!param == '00056 - Flow Rate') %>%
-#   filter(!param == '74076 - Flow') %>%
-#   filter(!param == '00058 - Flow rate') %>%
-#   filter(!param == '51061 - Flow (dry weather)') %>%
-#   filter(! key=='CT0100081_1_1989-12-31') %>% #remove one problematic set of duplicate observation
-#    drop_na(mg_N_per_L)%>%
-# distinct()
-# 
-# # #bind all observations back together
-#  flow_cleaned<-rbind(flow_50,flow_56,N_params) 
-# 
-# #review duplicates
-# dups2<-flow_cleaned %>%
-#   group_by(key, param_simple)%>%
-#   tally() %>%
-#   arrange(desc(n))
-# dups2 #there are no more duplicates
-# 
-# 
-# flow_cleaned <- flow_cleaned %>%
-# #removing unwanted columns
-#   select(
-#     !c('Monitoring Dt (MVDT)',
-#         'Discharge Designator (DRID)',
-#        'Parameter Cd (PRAM)',
-#        'param',
-#        'Monitoring Location (MLOC)',
-#        '#MULTIVALUE',
-#        'Meas Quant Maxm (MQMX)',
-#        'Quant Unit Cd (LQUC)',
-#        'Quant Unit Cd Desc (LQUCD)',
-#        'Meas Conc Minm (MCMN)',
-#        'Meas Conc Maxm (MCMX)...15',
-#        'Meas Conc Maxm (MCMX)...16',
-#        'Conc Unit Cd (LCUC)',
-#        'Conc Unit Cd Desc (LCUCD)',
-#        'quant_avg',
-#        'permit_outfall_designator',
-#        'conc_avg'
-#        )
-#   )
-# 
-# #review duplicates
-# dups3<-flow_cleaned %>%
-#   group_by(key)%>%
-#   tally() %>%
-#   arrange(desc(n))
-# dups3 #there are some duplicates in different rows
+ dup<-flow_cleaned %>%
+  group_by(key, param_simple)%>%
+  tally() %>%
+  filter(n>1)%>%
+    arrange(desc(n))
+dup #there aren't any duplicates after excluding NAs
 
 ```
 
