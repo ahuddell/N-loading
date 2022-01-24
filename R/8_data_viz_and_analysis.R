@@ -208,6 +208,7 @@ full_ts %>%
 
 
 full_ts$date<-as.Date(full_ts$month_year)
+full_ts$watershed_name<-full_ts$name
 
 zipfunc <- function(df, zippedfile) {
   # write temp csv
@@ -220,6 +221,25 @@ zipfunc <- function(df, zippedfile) {
 }
 
 zipfunc(df=full_ts,zippedfile=here("data",'complete_time_series_with_missing_data_imputed.zip'))
+
+
+# write out summary of location data --------------------------------------
+location_summary<-full_ts %>%
+  group_by(permit_outfall)%>%
+  summarize(permit_outfall=first(permit_outfall),
+            permit=first(permit),
+            outfall=first(outfall),
+            facility=first(facility),
+            long=first(long),
+            lat=first(lat),
+            state=first(state),
+            huc8=first(huc8),
+            watershed_name=first(watershed_name),
+            TMDL_zone=first(TMDL_zone))
+
+location_summary
+
+write_csv(location_summary,here("data",'complete_time_series_location_summary.csv'))
 
 # seasons analysis --------------------------------------------------------
 dat_nonzero<-filter(dat_ts,kg_N_TN_per_month>0 &
