@@ -235,6 +235,14 @@ dat<-dat_joined_2 %>%
           TRUE ~ facility)
         )
 
+#correct one outfall location
+dat$LONGITUDE83<-ifelse(dat$LONGITUDE83< -74, -73.734, dat$LONGITUDE83)
+dat$LATITUDE83<-ifelse(dat$LATITUDE83 > 41.14 & dat$LATITUDE83 < 41.157 , 40.945, 
+                       dat$LATITUDE83)
+
+
+
+
 #now there are no duplicate facility names
 dat %>%
   group_by(permit) %>%
