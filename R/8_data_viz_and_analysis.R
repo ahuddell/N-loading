@@ -91,7 +91,10 @@ data_to_rejoin<- dat %>%
             outfall=first(Outfall),
             state=first(state),
             huc8=first(huc8),
-            name=first(name)) %>%
+            name=first(name),
+            long=first(LONGITUDE83),
+            lat=first(LATITUDE83)
+            )%>%
   mutate(facility_outfall=paste(facility,outfall))
 
 #rejoin to full_ts
@@ -204,6 +207,8 @@ full_ts %>%
   facet_wrap(~facility_outfall, scale="free_y", labeller = label_wrap_gen(20))
 
 
+full_ts$date<-as.Date(full_ts$month_year)
+
 zipfunc <- function(df, zippedfile) {
   # write temp csv
   temp_filename = 'complete_time_series_with_missing_data_imputed.csv'
@@ -214,7 +219,7 @@ zipfunc <- function(df, zippedfile) {
   unlink(temp_filename)
 }
 
-zipfunc(df=dat,zippedfile=here("data",'complete_time_series_with_missing_data_imputed.zip'))
+zipfunc(df=full_ts,zippedfile=here("data",'complete_time_series_with_missing_data_imputed.zip'))
 
 # seasons analysis --------------------------------------------------------
 dat_nonzero<-filter(dat_ts,kg_N_TN_per_month>0 &
