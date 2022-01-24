@@ -224,7 +224,8 @@ zipfunc(df=full_ts,zippedfile=here("data",'complete_time_series_with_missing_dat
 
 
 # write out summary of location data --------------------------------------
-location_summary<-full_ts %>%
+location_summary<-as.tibble(full_ts) %>%
+  ungroup()%>%
   group_by(permit_outfall)%>%
   summarize(permit_outfall=first(permit_outfall),
             permit=first(permit),
