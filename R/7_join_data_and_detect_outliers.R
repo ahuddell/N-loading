@@ -477,8 +477,8 @@ leaflet(N_load_huc_join) %>%
   addPolygons()  
 
 #writing out huc_join for spatial app
-dir.create(here('data', 'huc_8_dat_join'))
+dir.create(here('data', 'N_load_huc8_join'))
 
 st_write(N_load_huc_join,
-         here('data','huc_8_dat_join','N_load_huc_join.shp'))
+         here('data','N_load_huc8_join','N_load_huc_join.shp'))
 
