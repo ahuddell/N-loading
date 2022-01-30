@@ -85,7 +85,7 @@ ui <- function(request) {
         leafletOutput('map'),
         plotOutput('plot1')
       )),
- 
+
     hr(), # add spacer
     
     fluidRow(splitLayout(
@@ -103,7 +103,7 @@ ui <- function(request) {
     fluidRow(
       height = 4,
       tags$style(type = 'text/css', '.selectize-input{ z-index: 999; }'),
-      h3('This tool summarizes point source N loading'),
+      h3('This tool summarizes point source N loading in the Long Island Sound Watershed'),
       column(
         width = 5,
       ),
@@ -118,28 +118,31 @@ ui <- function(request) {
           width='100%',
           selected = 'NY'
           )
-        ),
+        )
+    ),
+      
+    hr(), # add spacer
+      
     fluidRow(splitLayout(
         cellWidths = c('40%', '60%'),
         leafletOutput('map2'),
         plotOutput('plot2')
       )),
-      )
     )
   )
 }
+
+
+
+
 
 
 # server ------------------------------------------------------------------
 
 # Server
 server <- function(input, output, session) {
-  ## Tab 1
-  # # Reactive expression for the data filtered to what the user selected
-  # filtered_year <- reactive({
-  #   dat_annual %>% filter(year == input$year)
-  # })
-  
+
+#tab 1
   #mouseover labels
   labs <- as.list(dat_HUC8$name)
   
@@ -181,11 +184,27 @@ server <- function(input, output, session) {
       #facet_wrap(~facility)
    })
   
+  # Downloadable csv of selected dataset 
+  output$downloadData <- downloadHandler(
+    filename = function() {paste("Long_Island_Sound_WWTP_data", " ",Sys.Date(),".csv",sep="")},
+    content = function(file) {
+      write.csv(dat, 
+                file, 
+                row.names = FALSE)})
+  
+  #tab 2
   # render base map2
-  output$map2 <- renderLeaflet({
-    leaflet() %>%
-    addProviderTiles(providers$Stamen.Toner)
-          })
+  output$map2 <- 
+    renderLeaflet({
+      leaflet(dat_annual) %>%
+      addProviderTiles("CartoDB")  %>% 
+      setView(lng = -73.52, lat = 42.98,  zoom = 6) %>%
+        addCircleMarkers(data = dat_annual$geometry,
+                         popup = paste('Facility:',dat_annual$facility),
+                         label = paste('Facility:',dat_annual$facility),
+                         radius = dat_annual$radius
+                        )
+                })
   
   # Reactive expression for the data subsetted to what the user selected
   filtered_state <- reactive({
@@ -206,18 +225,8 @@ server <- function(input, output, session) {
       theme(text = element_text(size=18),
             legend.position = 'bottom')+
       scale_color_viridis(name='State', discrete=TRUE) +
-      scale_fill_viridis(name='State', discrete=TRUE)#+
+      scale_fill_viridis(name='State', discrete=TRUE)
   })
-
-  # Downloadable csv of selected dataset 
-  output$downloadData <- downloadHandler(
-    filename = function() {paste("Long_Island_Sound_WWTP_data", " ",Sys.Date(),".csv",sep="")},
-    content = function(file) {
-      write.csv(dat, 
-                file, 
-                row.names = FALSE)
-    }
-  )
   
 }
 
