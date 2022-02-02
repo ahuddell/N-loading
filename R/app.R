@@ -35,18 +35,18 @@ dat_annual$radius<-(dat_annual$kgN_facility_yr)/10^6
 
 #group facilities by HUC8 watershed
 dat_HUC8<-dat %>%
-  group_by(watershed_name, year=year(date)) %>%
-  summarise(kgN_huc8_yr=sum(kg_N_TN_per_month_complete,na.rm=T))
+  group_by(watershed_name, date) %>%
+  summarise(kgN_mo=sum(kg_N_TN_per_month_complete,na.rm=T))
 
 #group facilities by state
 dat_state<-dat %>%
-  group_by(state, year=year(date)) %>%
-  summarise(kgN_huc8_yr=sum(kg_N_TN_per_month_complete,na.rm=T))
+  group_by(state, date) %>%
+  summarise(kgN_mo=sum(kg_N_TN_per_month_complete,na.rm=T))
 
 #group facilities by HUC8 watershed
 dat_TMDL<-dat %>%
-  group_by(TMDL_zone, year=year(date)) %>%
-  summarise(kgN_huc8_yr=sum(kg_N_TN_per_month_complete,na.rm=T))
+  group_by(TMDL_zone, date) %>%
+  summarise(kgN_mo=sum(kg_N_TN_per_month_complete,na.rm=T))
 
 
 # ui ----------------------------------------------------------------------
@@ -128,6 +128,10 @@ ui <- function(request) {
         leafletOutput('map2'),
         plotOutput('plot2')
       )),
+    hr(),
+    
+    tags$h4("The points on the map show wastewater treatment plant locations with the radius of the points proportional to their annual nitrogen loads.")
+    
     )
   )
 }
@@ -144,7 +148,7 @@ server <- function(input, output, session) {
 
 #tab 1
   #mouseover labels
-  labs <- as.list(dat_HUC8$name)
+  labs <- as.list(dat_HUC8$watershed_name)
   
   # render base map
   output$map <- renderLeaflet({
@@ -169,13 +173,13 @@ server <- function(input, output, session) {
   # render plot1
   output$plot1 <- renderPlot({
     ggplot(data = filtered_watershed_name(),
-      aes(x = year, y = kgN_huc8_yr/1000, col = watershed_name,
+      aes(x = date, y = kgN_mo/1000, col = watershed_name,
           fill=watershed_name)) +
       ylab(expression(paste(
-        'Annual N load (1,000 kg N ',ha^-1,yr^-1,')')))+
+        'Annual N load (1,000 kg N',~~ha^-1,month^-1,')')))+
       xlab('Date')+
-      geom_line(alpha = 0.7) +
-      geom_smooth(method = 'lm', se = FALSE, linetype='dashed', alpha=.4, size=.6) +
+      geom_line(alpha = 0.9, size=1) +
+      #geom_smooth(method = 'lm', se = TRUE, linetype='dashed', alpha=.4, size=1.2) +
       theme_minimal() +
       theme(text = element_text(size=18),
             legend.position = 'bottom')+
@@ -214,13 +218,13 @@ server <- function(input, output, session) {
   # render plot2
   output$plot2 <- renderPlot({
     ggplot(data = filtered_state(),
-           aes(x = year, y = kgN_huc8_yr/1000, col = state,
+           aes(x = date, y = kgN_mo/1000, col = state,
                fill=state)) +
       ylab(expression(paste(
-        'Annual N load (1,000 kg N ',ha^-1,yr^-1,')')))+
+        'Annual N load (1,000 kg N',~ha^-1,mo^-1,')')))+
       xlab('Date')+
-      geom_line(alpha = 0.7) +
-      geom_smooth(method = 'lm', se = FALSE, linetype='dashed', alpha=.4, size=.6) +
+      geom_line(alpha = 0.7, size=1) +
+      #geom_smooth(method = 'lm', se = FALSE, linetype='dashed', alpha=.4, size=.6) +
       theme_minimal() +
       theme(text = element_text(size=18),
             legend.position = 'bottom')+
@@ -233,6 +237,6 @@ server <- function(input, output, session) {
 
 # run app -----------------------------------------------------------------
 
-options(shiny.reactlog = TRUE)
+#options(shiny.reactlog = TRUE)
 shinyApp(ui, server)
 
