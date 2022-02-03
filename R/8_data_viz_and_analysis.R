@@ -93,7 +93,8 @@ data_to_rejoin<- dat %>%
             huc8=first(huc8),
             name=first(name),
             long=first(LONGITUDE83),
-            lat=first(LATITUDE83)
+            lat=first(LATITUDE83),
+            water_body=first(STATE_WATER_BODY_NAME)
             )%>%
   mutate(facility_outfall=paste(facility,outfall))
 
@@ -213,7 +214,7 @@ full_ts$watershed_name<-full_ts$name
 zipfunc <- function(df, zippedfile) {
   # write temp csv
   temp_filename = 'complete_time_series_with_missing_data_imputed.csv'
-  write.csv(df, file=temp_filename)
+  write_csv(df, file=temp_filename)
   # zip temp csv
   zip(zippedfile,temp_filename)
   # delete temp csv
