@@ -115,7 +115,7 @@ season_mean <- dat_joined %>%
 dat_joined<-dat_joined %>% 
   select(-EXTERNAL_PERMIT_NMBR.y, -PERM_FEATURE_NMBR.y, -EXTERNAL_PERMIT_NMBR.x,
           -FACILITY_NAME, -SIC_CODES,- SIC_DESCRIPTIONS,-PERM_FEATURE_NMBR.x,
-         -STATE_WATER_BODY_NAME, -impute_name, -impute_lat, -impute_lon) %>%
+          -impute_name, -impute_lat, -impute_lon) %>%
   mutate(year=year(month_year))
 dat_joined_2<-left_join(dat_joined,season_mean)
 
