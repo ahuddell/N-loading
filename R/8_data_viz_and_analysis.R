@@ -103,7 +103,7 @@ full_ts<-left_join(full_ts,data_to_rejoin)
 
 #add column about outlier imputation 
 data_to_rejoin2<-dat %>%
-  select(permit_outfall, month_year, outlier, season) %>%
+  select(permit_outfall, month_year, outlier, season, -name) %>%
   mutate(outlier= case_when(outlier == "FALSE" ~ 0,
                             outlier == "TRUE" ~ 1)
   )
@@ -210,6 +210,12 @@ full_ts %>%
 
 full_ts$date<-as.Date(full_ts$month_year)
 full_ts$watershed_name<-full_ts$name
+ 
+#remove one column 
+full_ts<-select(full_ts, -name)
+
+#reformat outlier column class
+full_ts$outlier<-as.factor(full_ts$outlier)
 
 zipfunc <- function(df, zippedfile) {
   # write temp csv
