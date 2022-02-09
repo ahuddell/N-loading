@@ -13,6 +13,7 @@ library(here)
 library(lubridate)
 library(sf)
 library(viridis)
+library(EML)
 
 
 # read data, objects, and functions ---------------------------------------
@@ -22,6 +23,9 @@ names(dat)
 
 #read in the rest of the huc8 shapes 
 huc8_combined<-st_read(here('data','huc_8_dat_join','huc8_combined.shp'))
+
+#read in metadata XML file
+eml <- read_eml(here('data','metadata_eml.xml'))
 
 
 #group data in different ways
@@ -154,7 +158,8 @@ ui <- function(request) {
       column(
         width = 4,
      # Button
-      downloadButton('downloadData', 'Download raw data')
+     downloadButton('downloadMetaData', 'Download metadata'),
+     downloadButton('downloadData', 'Download raw data')
       )))
 
       ),
@@ -346,6 +351,14 @@ server <- function(input, output, session) {
                                   "Pawcatuck River"),
                          values = pal)
    })
+  # Downloadable csv of selected dataset 
+  output$downloadMetaData <- downloadHandler(
+    filename = function() {'metadata_eml.xml'},
+    content = function(file) {
+      EML::write_eml(eml, file)
+    })
+      
+
   
   # Downloadable csv of selected dataset 
   output$downloadData <- downloadHandler(
