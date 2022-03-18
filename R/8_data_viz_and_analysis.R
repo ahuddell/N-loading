@@ -3,16 +3,125 @@ library(lubridate)
 library(here)
 library(lme4)
 library(lmerTest)
-#library(imputeTS)
 library(zoo)
 library(tsibble)
 library(dataRetrieval)
-#library(slider)
-#library(car)
+library(broom)
 
 
 #load data
 dat<-read_csv(file=here("data","clean_PCS_ECHO_dat.csv"))
+dat
+
+dat<-dat %>%
+  mutate(month=month(month_year)) %>%
+  mutate(month=str_remove(month, "^0+"))%>%
+  mutate(key2=paste0(permit_outfall,'_',month,'_',year))
+
+# load CHIRPS precipitation data ------------------------------------------
+precip<-read_csv(here('data','WWTP_CHIRPS.csv'))
+
+precip<-precip %>%
+  select(-`system:index`)%>%
+  pivot_longer(
+    cols=('0_0_01_01_1989':'9_9_10_01_1998'),
+    names_to='ID',
+    values_to = 'monthly_precip_mm') %>%
+  separate(ID, c(NA, NA, 'month', 'day','year')) %>%
+  mutate(month=str_remove(month, "^0+"))%>%
+  mutate(key2=paste0(permit_outfall,'_',month,'_',year)) %>%
+  select(permit_outfall,month,year,monthly_precip_mm,key2)
+
+
+
+join<-left_join(dat,precip, by='key2')
+join
+
+#relationship between monthly precip versus raw monthly precipitation
+ggplot(join, aes(x=monthly_precip_mm, y=kg_N_TN_per_month),
+       col=as.factor(permit_outfall))+
+  geom_point() +
+  theme_minimal()
+
+summary(lm(kg_N_TN_per_month~monthly_precip_mm, data=join))
+
+#relationship between % change from the mean (for each facility) versus 
+#monthly precipitation
+
+mean_N_load<-join %>%
+  group_by(permit_outfall.x) %>%
+  summarise(mean_N_load=mean(kg_N_TN_per_month, na.rm=T)) 
+
+join2<-left_join(join,mean_N_load)
+
+join2<- join2 %>%
+        mutate(pct_change_N_load=(kg_N_TN_per_month-mean_N_load)/
+                                  mean_N_load*100
+               )
+  
+
+
+#relationship between % change in monthly N loads versus raw monthly precipitation
+join2 %>%
+    filter(state=='CT') %>%
+    ggplot( aes(x=monthly_precip_mm, y=pct_change_N_load))+
+  geom_point() +
+  geom_smooth(method='loess')+
+  theme_minimal() +
+  ylab('% change in N load')+
+  xlab('Monthly precipitation (mm)')+
+  facet_wrap(~facility, scales = 'free')
+
+join2 %>%
+  filter(state!='CT') %>%
+  ggplot( aes(x=monthly_precip_mm, y=pct_change_N_load))+
+  geom_point() +
+  geom_smooth(method='loess')+
+  theme_minimal() +
+  ylab('% change in N load')+
+  xlab('Monthly precipitation (mm)')+
+  facet_wrap(~facility, scales = 'free')
+
+#same plot without facet for all facilities
+join2 %>%
+  ggplot( aes(x=monthly_precip_mm, y=pct_change_N_load))+
+  geom_point() +
+  geom_smooth(method='loess')+
+  theme_minimal() +
+  ylab('% change in N load')+
+  xlab('Monthly precipitation (mm)')
+
+
+# ###these models are not converging
+# #random intercepts only
+# pct_N_load_model1<-lmer(pct_change_N_load~monthly_precip_mm + 
+#                         (1| facility), data = join2)
+# 
+# summary(pct_N_load_model1)
+# ranef(pct_N_load_model1)
+# 
+# #random slopes and intercepts for each model
+# pct_N_load_model2<-lmer(pct_change_N_load~(monthly_precip_mm | permit_outfall.x), 
+#                        data = join2)
+# summary(pct_N_load_model2)
+# ranef(pct_N_load_model2)
+
+#perhaps it makes more sense to fit separate lms for each outfall
+
+
+by_outfall <- join2 %>%
+              drop_na(pct_change_N_load, monthly_precip_mm) %>%
+              group_by(permit_outfall.x)
+
+fitted_models<-do(by_outfall, 
+       glance( 
+            lm(pct_change_N_load ~ monthly_precip_mm, data = .)))
+
+hist(fitted_models$adj.r.squared)
+
+hist(fitted_models$r.squared)
+
+hist(fitted_models$p.value)
 
 
 # impute time series missing data -----------------------------------------
@@ -295,6 +404,33 @@ season_plot<-ggplot() +
   annotate(geom='text',x=c(1.2,2.2,3.2,4.2), y=c(14.8,15.8,13.8,15.8), label=c('a','b','c','b'),
            fontface =2)
 season_plot
+
+
+season_plot2<-full_ts %>%
+  filter(state!="CT") %>%
+  ggplot(aes(x=month(as.Date(month_year)), y=kg_N_TN_per_month/1000)) +
+  geom_point()+
+  geom_smooth(method = 'loess')+
+  ylab('monthly total N load by outfall (1,000 kg N/mo)')+
+  theme(legend.position = "top")+
+  xlab('Month of year')+
+  theme_minimal()+
+  facet_wrap(~facility_outfall, scale="free_y", labeller = label_wrap_gen(20))
+
+season_plot2
+
+season_plot2.1<-full_ts %>%
+  filter(state=="CT") %>%
+  ggplot(aes(x=month(as.Date(month_year)), y=kg_N_TN_per_month/1000)) +
+  geom_point()+
+  geom_smooth(method = 'loess')+
+  ylab('monthly total N load by outfall (1,000 kg N/mo)')+
+  theme(legend.position = "top")+
+  xlab('Month of year')+
+  theme_minimal()+
+  facet_wrap(~facility_outfall, scale="free_y", labeller = label_wrap_gen(20))
+
+season_plot2.1
 
 
 # load vs. hypoxia --------------------------------------------------------
