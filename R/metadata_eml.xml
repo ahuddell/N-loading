@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<eml:eml xmlns:eml="https://eml.ecoinformatics.org/eml-2.2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:stmml="http://www.xml-cml.org/schema/stmml-1.2" packageId="5f454829-6caf-4bd0-8fbe-4565fc767ff7" xsi:schemaLocation="https://eml.ecoinformatics.org/eml-2.2.0 https://eml.ecoinformatics.org/eml-2.2.0/eml.xsd" system="uuid">
+  <dataset>
+    <abstract>NOTE: These are provisional data that have not yet undergone peer-review, and 
+      improvements to the methods for outlier and missing data imputation are 
+      ongoing. The raw data contains monthly estimates of point source nitrogen 
+      loading data from wastewater treatment plants in the Long Island Sound Watershed.
+      Data that were imputed are designated as such. Please see the metadata for detailed
+      descriptions of the data and variable names. Please use this information with 
+      caution, and contact amh2284 [at] columbia [dot] edu with any questions.</abstract>
+    <additionalMetadata>
+      <metadata>
+        <unitList>
+          <unit id="kilogramsNitrogenPerMonth" name="kilogramsNitrogenPerMonth" unitType="otherUnitType">
+            <abbreviation>kg_N/month</abbreviation>
+            <abbreviation>decimal_degree</abbreviation>
+            <parentSI>kilogram</parentSI>
+            <parentSI>degree</parentSI>
+            <description>kilograms of nitrogen per month</description>
+            <description>decimal degrees = degrees + (minutes/60) + (seconds/3600)</description>
+          </unit>
+        </unitList>
+      </metadata>
+    </additionalMetadata>
+    <coverage>
+      <geographicCoverage>
+        <geographicDescription>Long Island Sound Watershed</geographicDescription>
+        <boundingCoordinates>
+          <westBoundingCoordinate>-73.98</westBoundingCoordinate>
+          <eastBoundingCoordinate>-71.53</eastBoundingCoordinate>
+          <northBoundingCoordinate>44.59</northBoundingCoordinate>
+          <southBoundingCoordinate>41.18</southBoundingCoordinate>
+        </boundingCoordinates>
+      </geographicCoverage>
+      <temporalCoverage>
+        <rangeOfDates>
+          <beginDate>
+            <calendarDate>1989-01-01</calendarDate>
+          </beginDate>
+          <endDate>
+            <calendarDate>2021-09-31</calendarDate>
+          </endDate>
+        </rangeOfDates>
+      </temporalCoverage>
+    </coverage>
+    <creator id="https://orcid.org/0000-0002-6289-6290">
+      <individualName>
+        <givenName>Alexandra</givenName>
+        <surName>Huddell</surName>
+      </individualName>
+      <electronicMailAddress>amh2284@columbia.edu</electronicMailAddress>
+    </creator>
+    <dataTable>
+      <entityName>complete_time_series_with_missing_data_imputed.csv</entityName>
+      <entityDescription>Point source nitrogen loading Long Island Sound Watershed 1989-2021</entityDescription>
+      <physical>
+        <objectName>complete_time_series_with_missing_data_imputed.csv</objectName>
+        <size unit="bytes">11071809</size>
+        <authentication method="MD5">836a55937ad2b4b85d56c07f986ae2f6</authentication>
+        <dataFormat>
+          <textFormat>
+            <recordDelimiter>
+</recordDelimiter>
+            <attributeOrientation>column</attributeOrientation>
+            <simpleDelimited>
+              <fieldDelimiter>,</fieldDelimiter>
+            </simpleDelimited>
+          </textFormat>
+        </dataFormat>
+      </physical>
+      <attributeList>
+        <attribute>
+          <attributeName>permit_outfall</attributeName>
+          <attributeDefinition>unique identifer for each outfall</attributeDefinition>
+          <storageType>string</storageType>
+          <measurementScale/>
+        </attribute>
+        <attribute>
+          <attributeName>month_year</attributeName>
+          <attributeDefinition>year (YYYY) and month (Jan, Feb, etc.) </attributeDefinition>
+          <storageType>string</storageType>
+          <measurementScale/>
+        </attribute>
+        <attribute>
+          <attributeName>kg_N_TN_per_month</attributeName>
+          <attributeDefinition>total nitrogren load from outfall effluent</attributeDefinition>
+          <storageType>float</storageType>
+          <measurementScale>
+            <ratio>
+              <unit>
+                <customUnit>kg_N/month</customUnit>
+              </unit>
+              <numericDomain>
+                <numberType>real</numberType>
+              </numericDomain>
+            </ratio>
+          </measurementScale>
+        </attribute>
+        <attribute>
+          <attributeName>rollingmean</attributeName>
+          <attributeDefinition>rolling mean of total nitrogren load from outfall effluent, calculated using prior 3 and following 3 observations (when available)</attributeDefinition>
+          <storageType>float</storageType>
+          <measurementScale>
+            <ratio>
+              <unit>
+                <customUnit>kg_N/month</customUnit>
+              </unit>
+              <numericDomain>
+                <numberType>real</numberType>
+              </numericDomain>
+            </ratio>
+          </measurementScale>
+        </attribute>
+        <attribute>
+          <attributeName>imputed_missing_value</attributeName>
+          <attributeDefinition>imputed value binary variable where missing data are designated as 1 and non-missing values are designated as 0,</attributeDefinition>
+          <storageType>string</storageType>
+          <measurementScale>
+            <nominal>
+              <nonNumericDomain>
+                <enumeratedDomain>
+                  <codeDefinition>
+                    <code>0</code>
+                    <definition>not a missing value</definition>
+                  </codeDefinition>
+                  <codeDefinition>
+                    <code>1</code>
+                    <definition>missing value</definition>
+                  </codeDefinition>
+                </enumeratedDomain>
+              </nonNumericDomain>
+            </nominal>
+          </measurementScale>
+        </attribute>
+        <attribute>
+          <attributeName>kg_N_TN_per_month_complete</attributeName>
+          <attributeDefinition>column with complete data where original obeservations are combined with imputed data for missing data or outliers, with rolling mean used for missing data, and within-seasonal, within-outfall mean imputed for outliers</attributeDefinition>
+          <storageType>float</storageType>
+          <measurementScale>
+            <ratio>
+              <unit>
+                <customUnit>kg_N/month</customUnit>
+              </unit>
+              <numericDomain>
+                <numberType>real</numberType>
+              </numericDomain>
+            </ratio>
+          </measurementScale>
+        </attribute>
+        <attribute>
+          <attributeName>facility</attributeName>
+          <attributeDefinition>wastewater treatment plant or industrial site name</attributeDefinition>
+          <storageType>string</storageType>
+          <measurementScale/>
+        </attribute>
+        <attribute>
+          <attributeName>permit</attributeName>
+          <attributeDefinition>U.S. Environmental Protection Agency (EPA) National Pollutant Discharge Elimination System (NPDES) permit number</attributeDefinition>
+          <storageType>string</storageType>
+          <measurementScale/>
+        </attribute>
+        <attribute>
+          <attributeName>outfall</attributeName>
+          <attributeDefinition>facility outfall number</attributeDefinition>
+          <storageType>string</storageType>
+          <measurementScale/>
+        </attribute>
+        <attribute>
+          <attributeName>state</attributeName>
+          <attributeDefinition>state abbreviation i.e. New York (NY)</attributeDefinition>
+          <storageType>string</storageType>
+          <measurementScale/>
+        </attribute>
+        <attribute>
+          <attributeName>huc8</attributeName>
+          <attributeDefinition>HUC 8 ID from the National Watershed Boundary Database</attributeDefinition>
+          <storageType>string</storageType>
+          <measurementScale/>
+        </attribute>
+        <attribute>
+          <attributeName>long</attributeName>
+          <attributeDefinition>longtitude coordinates in decimal degrees</attributeDefinition>
+          <storageType>float</storageType>
+          <measurementScale>
+            <ratio>
+              <unit>
+                <customUnit>decimal_degree</customUnit>
+              </unit>
+            </ratio>
+          </measurementScale>
+        </attribute>
+        <attribute>
+          <attributeName>lat</attributeName>
+          <attributeDefinition>latitude coordinates in decimal degrees</attributeDefinition>
+          <storageType>float</storageType>
+          <measurementScale>
+            <ratio>
+              <unit>
+                <customUnit>decimal_degree</customUnit>
+              </unit>
+            </ratio>
+          </measurementScale>
+        </attribute>
+        <attribute>
+          <attributeName>water_body</attributeName>
+          <attributeDefinition>water body that outfall discharges to from the EPA ICIS-NPDES Discharge Points dataset</attributeDefinition>
+          <storageType>string</storageType>
+          <measurementScale/>
+        </attribute>
+        <attribute>
+          <attributeName>facility_outfall</attributeName>
+          <attributeDefinition>facility and outfall identifiers combined with underscore</attributeDefinition>
+          <storageType>string</storageType>
+          <measurementScale/>
+        </attribute>
+        <attribute>
+          <attributeName>outlier</attributeName>
+          <attributeDefinition>binary variable where outliers are designated as 1 and non-outliers are designated as 0</attributeDefinition>
+          <storageType>string</storageType>
+          <measurementScale>
+            <nominal>
+              <nonNumericDomain>
+                <enumeratedDomain>
+                  <codeDefinition>
+                    <code>0</code>
+                    <definition>not an outlier</definition>
+                  </codeDefinition>
+                  <codeDefinition>
+                    <code>1</code>
+                    <definition>outlier</definition>
+                  </codeDefinition>
+                </enumeratedDomain>
+              </nonNumericDomain>
+            </nominal>
+          </measurementScale>
+        </attribute>
+        <attribute>
+          <attributeName>season</attributeName>
+          <attributeDefinition>calendar season, winter (Dec., Jan., Feb.), spring (Mar., Apr, May), summer (Jun., Jul., Aug.), fall (Sep., Oct., Nov.)</attributeDefinition>
+          <storageType>string</storageType>
+          <measurementScale>
+            <nominal>
+              <nonNumericDomain>
+                <enumeratedDomain>
+                  <codeDefinition>
+                    <code>winter</code>
+                    <definition>winter season (Dec., Jan., Feb.)</definition>
+                  </codeDefinition>
+                  <codeDefinition>
+                    <code>spring</code>
+                    <definition>spring season (Mar., Apr, May)</definition>
+                  </codeDefinition>
+                  <codeDefinition>
+                    <code>summer</code>
+                    <definition>summer season (Jun., Jul., Aug.)</definition>
+                  </codeDefinition>
+                  <codeDefinition>
+                    <code>fall</code>
+                    <definition>fall season (Sep., Oct., Nov.)</definition>
+                  </codeDefinition>
+                </enumeratedDomain>
+              </nonNumericDomain>
+            </nominal>
+          </measurementScale>
+        </attribute>
+        <attribute>
+          <attributeName>TMDL_zone</attributeName>
+          <attributeDefinition>Total Maximum Daily Load (TMDL) zones for the Long Island Sound</attributeDefinition>
+          <storageType>string</storageType>
+          <measurementScale/>
+        </attribute>
+        <attribute>
+          <attributeName>water_year</attributeName>
+          <attributeDefinition>water year, calculated with the calcWaterYear function of the dataRetrieval R package</attributeDefinition>
+          <storageType>float</storageType>
+          <measurementScale>
+            <ratio>
+              <numericDomain>
+                <numberType>year</numberType>
+              </numericDomain>
+            </ratio>
+          </measurementScale>
+        </attribute>
+        <attribute>
+          <attributeName>date</attributeName>
+          <attributeDefinition>date YYYY-MM-DD</attributeDefinition>
+          <storageType>date</storageType>
+          <measurementScale>
+            <dateTime>
+              <formatString>YYYY-MM-DD year-month-day</formatString>
+            </dateTime>
+          </measurementScale>
+        </attribute>
+        <attribute>
+          <attributeName>watershed_name</attributeName>
+          <attributeDefinition>HUC8 watershed name</attributeDefinition>
+          <storageType>string</storageType>
+          <measurementScale/>
+        </attribute>
+      </attributeList>
+    </dataTable>
+    <intellectualRights>This dataset is released to the public and may be freely
+  downloaded. Please keep the designated Contact person informed of any
+plans to use the dataset. Consultation or collaboration with the original
+investigators is strongly encouraged. Publications and data products
+that make use of the dataset must include proper acknowledgement.</intellectualRights>
+    <keywordSet>
+      <keyword>point source nitrogen loading</keyword>
+      <keyword>U.S. Environmental Protection Agency (EPA)</keyword>
+      <keyword>National Pollutant Discharge Elimination System (NPDES)</keyword>
+      <keyword>Long Island Sound Watershed</keyword>
+    </keywordSet>
+    <pubDate>2022</pubDate>
+    <title>Point source nitrogen loading data for the Long Island Sound Study from 1989-2021</title>
+  </dataset>
+</eml:eml>
