@@ -7,7 +7,8 @@ library(zoo)
 library(tsibble)
 library(dataRetrieval)
 library(broom)
-
+library(imputeTS)
+library(fable)
 
 #load data
 dat<-read_csv(file=here("data","clean_PCS_ECHO_dat.csv"))
@@ -166,20 +167,69 @@ ggplot(ts_gaps, aes(x = permit_outfall)) +
   theme(legend.position = "bottom")
 
 
-# filling in time gaps and calculating rolling mean -----------------------
+# filling in time gaps with imputeTS -----------------------
 
 
-#impute missing values with previous estimate in time series
+#impute missing values with previous estimate in time series with imputeTS
 full_ts<- dat_ts %>%
   select(permit_outfall,month_year,kg_N_TN_per_month) %>% #removing unnecessary columns
   group_by_key() %>% 
-  fill_gaps( .full = TRUE)%>% #fill in NAs in missing months
-  mutate(rollingmean=rollmean(kg_N_TN_per_month, k=6, fill=NA)) %>% #calculate rolling mean
   mutate(imputed_missing_value=if_else(is.na(kg_N_TN_per_month), 1, 0)) %>% #designate imputed values as "1"
-  mutate(kg_N_TN_per_month_complete=if_else(is.na(kg_N_TN_per_month), 
-                                            rollingmean, 
-                                            kg_N_TN_per_month))%>% #create new column to add imputed data
-  fill(kg_N_TN_per_month_complete, .direction = "downup") #fill gaps in rolling means with last recorded, or if not available, then the next recorded value in time series
+  mutate(kg_N_TN_per_month_complete=kg_N_TN_per_month) %>% #first, copy over original data
+  mutate(kg_N_TN_per_month_complete_1=na_kalman(kg_N_TN_per_month)) #impute missing data in "kalman imputed"
+
+#next we want to determine the length of data that need to be filled in for each
+#permit_outfall time series for the beginning of the series
+
+#bootstrapping approach to fill in missing data from before when data 
+# was available;
+set.seed(4561)
+
+#create small df with permit/outfall and date of first observation
+min_year<-as_tibble(full_ts) %>%
+          group_by(permit_outfall) %>%
+          select(permit_outfall,month_year) %>%
+          summarise(min_time_step=min(month_year)) %>%
+          mutate(time_gap_interval=min_time_step-min(min_year$min_time_step)) %>% #calculate length of time interval to fill in later
+          select(-min_time_step)
+min_year
+          
+bootstrap_first_10yr<-as_tibble(full_ts) %>%
+  ungroup() %>%
+  drop_na(kg_N_TN_per_month) %>% #drop NAs in kg_N_TN_per_month
+  mutate(year=year(month_year),
+         month=month(month_year),
+         permit_outfall_month=paste0(permit_outfall,'_',month)) %>%
+  group_by(permit_outfall_month) %>% #group by month of the year and month
+  filter(year>=min(year) & year<=min(year)+10) %>% #filter each group to first 10 years
+  select(permit_outfall_month,kg_N_TN_per_month) %>% #select permit_outfall_month column, N load, and time gap interval to fill
+  nest(-permit_outfall_month) %>% 
+  mutate(permit_outfall_month_2=permit_outfall_month) %>%
+  separate(permit_outfall_month_2,into=c('permit','outfall',NA),sep='_') %>% #separate permit and outfall
+  mutate(permit_outfall=paste0(permit,'_',outfall)) %>% #rejoin permit and outfall
+  left_join(min_year) %>% #join minimum time step to each permit_outfall
+  #mutate(n=rep(20)) %>% 
+  mutate(bootstrap_first_10yr = map2(data, time_gap_interval, sample_n, replace = TRUE)) %>% 
+  select(-data, -permit, -outfall, -time_gap_interval) %>% #remove original data
+  unnest
+
+bootstrap_first_10yr
+
+#the total of the time gaps across each permit/outfall should be the same 
+#as the length of the bootstrap df
+sum(min_year$time_gap_interval)
+dim(bootstrap_first_10yr)
+
+
+fill_gaps(.full = TRUE) #fill in NAs in missing months from outside of the time range
+
+  
+bootstap_95_00<-full_ts %>%
+    mutate(year=year(month_year),
+           month=month(month_year))%>%
+    filter(year>=1995 & year<=2000)%>% #filter to between 1989-1994
+    group_by(permit_outfall, month) %>% #group by month of the year and month
+    sample_n(!is.na(kg_N_TN_per_month), size=5, replace=TRUE)
 
 summary(full_ts$kg_N_TN_per_month_complete) #there are no NAs
 
@@ -188,6 +238,9 @@ summary(full_ts$kg_N_TN_per_month_complete) #there are no NAs
     (table(full_ts$imputed_missing_value)[[1]]+table(full_ts$imputed_missing_value)[[2]]))*100
 #53% of the data
 
+  
+
+  
 
 # rejoin other data to completed time series ------------------------------
 
