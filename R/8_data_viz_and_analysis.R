@@ -190,7 +190,7 @@ min_year<-as_tibble(full_ts) %>%
           group_by(permit_outfall) %>%
           select(permit_outfall,month_year) %>%
           summarise(min_time_step=min(month_year)) %>%
-          mutate(time_gap_interval=min_time_step-min(min_year$min_time_step)) %>% #calculate length of time interval to fill in later
+          mutate(time_gap_interval=min_time_step-min(min_time_step)) %>% #calculate length of time interval to fill in later
           select(-min_time_step)
 min_year
           
@@ -202,18 +202,37 @@ bootstrap_first_10yr<-as_tibble(full_ts) %>%
          permit_outfall_month=paste0(permit_outfall,'_',month)) %>%
   group_by(permit_outfall_month) %>% #group by month of the year and month
   filter(year>=min(year) & year<=min(year)+10) %>% #filter each group to first 10 years
-  select(permit_outfall_month,kg_N_TN_per_month) %>% #select permit_outfall_month column, N load, and time gap interval to fill
+  select(permit_outfall_month,kg_N_TN_per_month) %>% #select permit_outfall_month column and N load
   nest(-permit_outfall_month) %>% 
   mutate(permit_outfall_month_2=permit_outfall_month) %>%
   separate(permit_outfall_month_2,into=c('permit','outfall',NA),sep='_') %>% #separate permit and outfall
   mutate(permit_outfall=paste0(permit,'_',outfall)) %>% #rejoin permit and outfall
   left_join(min_year) %>% #join minimum time step to each permit_outfall
   #mutate(n=rep(20)) %>% 
-  mutate(bootstrap_first_10yr = map2(data, time_gap_interval, sample_n, replace = TRUE)) %>% 
+  mutate(bootstrap_first_10yr = map2(data, time_gap_interval/12, sample_n, replace = TRUE)) %>% 
   select(-data, -permit, -outfall, -time_gap_interval) %>% #remove original data
   unnest
 
 bootstrap_first_10yr
+
+sample<-full_ts %>%
+  filter(permit_outfall=='CT0101052_1')
+
+unique(month(sample$month_year))
+
+tally<-bootstrap_first_10yr %>%
+  group_by(permit_outfall)%>%
+  summarise(n=n())
+
+check<-left_join(tally,min_year)
+
+ggplot(check, aes(time_gap_interval, n))+ 
+  geom_point()
+
+check %>%
+  mutate(difference=n-time_gap_interval) %>%
+  filter(difference>0 | difference <0)
+
 
 #the total of the time gaps across each permit/outfall should be the same 
 #as the length of the bootstrap df
