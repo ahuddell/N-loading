@@ -198,40 +198,20 @@ bootstrap_first_10yr<-as_tibble(full_ts) %>%
   ungroup() %>%
   drop_na(kg_N_TN_per_month) %>% #drop NAs in kg_N_TN_per_month
   mutate(year=year(month_year),
-         month=month(month_year),
-         permit_outfall_month=paste0(permit_outfall,'_',month)) %>%
-  group_by(permit_outfall_month) %>% #group by month of the year and month
+         month=month(month_year)) %>%
   filter(year>=min(year) & year<=min(year)+10) %>% #filter each group to first 10 years
-  select(permit_outfall_month,kg_N_TN_per_month) %>% #select permit_outfall_month column and N load
-  nest(-permit_outfall_month) %>% 
-  mutate(permit_outfall_month_2=permit_outfall_month) %>%
-  separate(permit_outfall_month_2,into=c('permit','outfall',NA),sep='_') %>% #separate permit and outfall
+  select(permit_outfall,kg_N_TN_per_month) %>% #select permit_outfall_month column and N load
+  nest(-permit_outfall) %>% 
+  mutate(permit_outfall_2=permit_outfall) %>%
+  separate(permit_outfall_2,into=c('permit','outfall',NA),sep='_') %>% #separate permit and outfall
   mutate(permit_outfall=paste0(permit,'_',outfall)) %>% #rejoin permit and outfall
   left_join(min_year) %>% #join minimum time step to each permit_outfall
   #mutate(n=rep(20)) %>% 
-  mutate(bootstrap_first_10yr = map2(data, time_gap_interval/12, sample_n, replace = TRUE)) %>% 
+  mutate(bootstrap_first_10yr = map2(data, time_gap_interval, sample_n, replace = TRUE)) %>% 
   select(-data, -permit, -outfall, -time_gap_interval) %>% #remove original data
   unnest
 
 bootstrap_first_10yr
-
-sample<-full_ts %>%
-  filter(permit_outfall=='CT0101052_1')
-
-unique(month(sample$month_year))
-
-tally<-bootstrap_first_10yr %>%
-  group_by(permit_outfall)%>%
-  summarise(n=n())
-
-check<-left_join(tally,min_year)
-
-ggplot(check, aes(time_gap_interval, n))+ 
-  geom_point()
-
-check %>%
-  mutate(difference=n-time_gap_interval) %>%
-  filter(difference>0 | difference <0)
 
 
 #the total of the time gaps across each permit/outfall should be the same 
@@ -239,6 +219,7 @@ check %>%
 sum(min_year$time_gap_interval)
 dim(bootstrap_first_10yr)
 
+#join bootstrapped data back to time series data data frame
 
 fill_gaps(.full = TRUE) #fill in NAs in missing months from outside of the time range
 
