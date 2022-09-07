@@ -158,9 +158,7 @@ SIC_permit_count%>%
 #	Sewerage Systems--4952
 # Colleges And Universities; Elementary And Secondary Schools--8221
 #Services; Sewerage Systems--8999 
-#Fish Hatcheries And Preserves--921
-#Paper Mills--2621
-SIC_CODES_keep<-c('4952','8221','8999', '921', '2621', '4952 8221',
+SIC_CODES_keep<-c('4952','8221','8999', '4952 8221',
                   '9512 4952', '8999 4952')
 
 permits_to_keep<-join %>%
@@ -311,6 +309,7 @@ dat$param_simple <- recode(dat$Parameter,
     "51445 - Nitrogen, Total" = "TN",
     "00608 - Nitrogen, ammonia dissolved" = "NH3",
     "00630 - Nitrite + Nitrate total (as N)" = "NO3NO2",
+    "00630 - Nitrite Plus Nitrate Total 1 Det. (As N)"= "NO3NO2",
     "00609 - Ammonia nitrogen, total, (as N) 30 day" = "NH3",
     "49579 - Nitrogen, total Kjeldahl" = "TKN",
     "51447 - Nitrogen, Nitrite  Total" = "NO2",
