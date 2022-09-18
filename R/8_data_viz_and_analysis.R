@@ -43,6 +43,20 @@ dat$month_year<-yearmonth(dat$month_year)
 # 
 # summary(lm(dat$rollingmean~dat$kg_N_TN_per_month))
 
+#need to remove a few duplicate observations from different outfalls that were combined
+dat %>%
+  select(permit_outfall, Outfall, month_year, kg_N_TN_per_month) %>%
+  duplicates(key = permit_outfall, index=month_year) 
+
+
+dat<-dat %>%
+  mutate(key_remove=paste0(permit_outfall,Outfall,month_year)) %>%
+  filter(!key_remove=="NY0021750_122004 Apr") %>%
+  filter(!key_remove=="NY0206644_122004 Mar") %>%
+  filter(!key_remove=="NY0206644_122004 Apr") %>%
+  filter(!key_remove=="NY0206644_122004 May") %>%
+  select(-key_remove)
+
 #create tsibble object
 dat_ts<-as_tsibble(dat, key = permit_outfall, index=month_year)
 dat_ts
@@ -60,6 +74,7 @@ ggplot(ts_gaps, aes(x = permit_outfall)) +
   theme_minimal()+
   ggtitle('Data gaps in time')+
   theme(legend.position = "bottom")
+
 
 # identifying permits that stop reporting early ---------------------------
 ts_end_date<-dat %>%
@@ -87,6 +102,23 @@ full_ts<- dat_ts %>%
   mutate(kg_N_TN_per_month_complete=kg_N_TN_per_month) %>% #first, copy over original data
   mutate(kg_N_TN_per_month_complete=na_kalman(kg_N_TN_per_month)) #impute missing data in "kalman imputed"
 
+
+#impute missing values within the bounds of the original time series for each outfall
+#with imputeTS "na_kalman" function 
+end_dates_imputation<- full_ts %>%
+  filter( permit_outfall %in% c('NY0022128_1','NY0023311_1', 'NY0026999_3')) %>%
+  select(permit_outfall,month_year,kg_N_TN_per_month) %>% #removing unnecessary columns
+  fill_gaps(.end = max(full_ts$month_year)) %>% #fill in NAs in missing months to the end of the time series
+  group_by_key() %>% 
+  mutate(imputed_missing_value=if_else(is.na(kg_N_TN_per_month), 1, 0)) %>% #designate imputed values as "1"
+  mutate(kg_N_TN_per_month_complete=kg_N_TN_per_month) %>% #first, copy over original data
+  mutate(kg_N_TN_per_month_complete=na_kalman(kg_N_TN_per_month)) #impute missing data in "kalman imputed"
+
+end_dates_imputation
+
+full_ts<- bind_rows(as_tibble(full_ts), as_tibble(end_dates_imputation))
+full_ts<-distinct(full_ts) #drop duplicated rows caused by previous step
+full_ts<-as_tsibble(full_ts, key = permit_outfall, index=month_year) #turn back into tsibble
 
 #inspecting missingingness
 summary(has_gaps(full_ts)$.gaps)
@@ -219,6 +251,8 @@ summary(full_ts$kg_N_TN_per_month_complete) #no NAs
 
 full_ts
 
+
+
 # rejoin other data to completed time series ------------------------------
 
 #organizing permit, facility, Outfall, and state by each permit_outfall to rejoin 
@@ -271,21 +305,21 @@ check_permit_dates<-full_ts %>%
   filter(obs_date<=orig_issue_dt) %>% #remove early data from before permit origination
   mutate(remove_ID=paste0(permit_outfall,month_year)) #create a tag to remove these rows
 nrow(check_permit_dates)
-#488 observations do come before permit observation date and should be excluded
+#441 observations do come before permit observation date and should be excluded
 
 observations_to_remove=check_permit_dates$remove_ID
 
 #remove observations that precede permit origination date
-nrow(full_ts) #53,097
+nrow(full_ts) #50,776
 
 full_ts<-full_ts %>%
   mutate(check_ID=paste0(permit_outfall,month_year)) %>%
   filter(!check_ID %in% observations_to_remove) %>% #remove observations from before or at permit origin issue date
   select(-check_ID) #then remove those columns
 
-nrow(full_ts) #52609    
+nrow(full_ts) #50,335    
 
-#488 observations removed
+#441 observations removed
 
 # join TMDL zones to data and add water year-------------------------------------------------
 
