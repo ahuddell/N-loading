@@ -57,6 +57,18 @@ dat_joined %>%
   group_by(key) %>%
   filter(n()>1)
 
+#there are three WWTPs that change outfall number and create duplicate values 
+#that are incorrect, and we have to correct
+
+dat_joined<-dat_joined %>%
+  mutate(permit_outfall=
+           case_when(permit_outfall=="NY0021342_3" ~ "NY0021342_1",
+                     permit_outfall=="NY0021750_2" ~ "NY0021750_1",
+                     permit_outfall=="NY0206644_2" ~"NY0206644_1",
+                    TRUE ~ permit_outfall)
+         )
+
+
 #filtering out data that have fewer than 4 years worth of data
 tally<-dat_joined %>% 
   group_by(permit_outfall) %>%
@@ -74,11 +86,11 @@ outliers <- dat_joined %>%
   filter(kg_N_TN_per_month < quantile(kg_N_TN_per_month, 0.25, na.rm=T) - 3*IQR(kg_N_TN_per_month, na.rm=T) |
       kg_N_TN_per_month > quantile(kg_N_TN_per_month, 0.75, na.rm=T) + 3*IQR(kg_N_TN_per_month, na.rm=T)
   )
-outliers #244 points fall 3X outside of IQR but many are NAs
+outliers #272 points fall 3X outside of IQR but many are NAs
 outliers_keys<-outliers$key[!is.na(outliers$key)]
 
 dat_joined$outlier<-ifelse(dat_joined$key %in% outliers_keys, TRUE, FALSE)
-summary(dat_joined$outlier) #now those 244 points are marked as "outlier" TRUE
+summary(dat_joined$outlier) #now those 272 points are marked as "outlier" TRUE
 
 
 #add seasons
@@ -129,7 +141,7 @@ ggplot(dat_joined_2, aes(x=kg_N_TN_per_month, y=season_mean))+
   annotate('text', x=1000,y=700000, label='R2=0.91')+
   theme_minimal()
 summary(lm(season_mean~kg_N_TN_per_month, data=dat_joined_2))
-#R2=0.99
+#R2=0.91
 
 
 #plot with outliers 
