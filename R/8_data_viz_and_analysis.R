@@ -304,21 +304,20 @@ check_permit_dates<-full_ts %>%
   filter(obs_date<=orig_issue_dt) %>% #remove early data from before permit origination
   mutate(remove_ID=paste0(permit_outfall,month_year)) #create a tag to remove these rows
 nrow(check_permit_dates)
-#441 observations do come before permit observation date and should be excluded
+#415 observations do come before permit observation date and should be excluded
 
 observations_to_remove=check_permit_dates$remove_ID
 
 #remove observations that precede permit origination date
-nrow(full_ts) #50,776
+nrow(full_ts) #51094
 
 full_ts<-full_ts %>%
   mutate(check_ID=paste0(permit_outfall,month_year)) %>%
   filter(!check_ID %in% observations_to_remove) %>% #remove observations from before or at permit origin issue date
   select(-check_ID) #then remove those columns
 
-nrow(full_ts) #50,335    
+nrow(full_ts) #50679  
 
-#441 observations removed
 
 # join TMDL zones to data and add water year-------------------------------------------------
 
