@@ -78,7 +78,6 @@ ggplot(ts_gaps, aes(x = permit_outfall)) +
 
 # identifying permits that stop reporting early ---------------------------
 ts_end_date<-dat %>%
-             filter(permit_outfall=='CT0024694_1') %>% #select one of the CT plants with the end date of Dec 2020
              summarize(max(month_year)) #the time series end date
 
 permits_early_end_date<-dat %>%
@@ -88,7 +87,7 @@ permits_early_end_date<-dat %>%
 
 permits_early_end_date
 
-write_csv(permits_early_end_date, 'monitoring early end dates.csv')
+#write_csv(permits_early_end_date, 'monitoring early end dates.csv')
 
 # filling in time gaps with imputeTS ----------------------
 
