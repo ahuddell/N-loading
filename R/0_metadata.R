@@ -25,7 +25,7 @@ tibble::tribble(
   ~attributeName, ~attributeDefinition,                                                                                                                     ~formatString,               ~definition,        ~unit,                            ~numberType,
     'permit_outfall', 'unique identifer for each outfall',                                                                                                  'EPA NPDES ID_outfall number',   NA,                NA,                             NA,
     'month_year', 'year (YYYY) and month (Jan, Feb, etc.) ',                                                                                                 'YYYY mth',                     NA,                NA,                             NA,          
-    'kg_N_TN_per_month','total nitrogren load from outfall effluent',                                                                                          NA,                           NA,               'kg_N/month',                   'real',
+    'kg_N_TN_per_month','total nitrogen load from outfall effluent',                                                                                          NA,                           NA,               'kg_N/month',                   'real',
     'rollingmean', 'rolling mean of total nitrogren load from outfall effluent, calculated using prior 3 and following 3 observations (when available)',      NA,                           NA,                'kg_N/month',                   'real',
     'imputed_missing_value',   'imputed value binary variable where missing data are designated as 1 and non-missing values are designated as 0,',            NA,                           NA,                'unitless',                              NA,
     'kg_N_TN_per_month_complete','column with complete data where original obeservations are combined with imputed data for missing data or outliers, with rolling mean used for missing data, and within-seasonal, within-outfall mean imputed for outliers',         NA,                          NA,                'kg_N/month',       'real',
@@ -130,7 +130,7 @@ coverage <-
 
 R_person <- person(given="Alexandra", 
                    family="Huddell", 
-                   email="amh2284@columbia.edu", 
+                   email="ahuddell@umd.edu", 
                    role="cre", 
                    comment=c(ORCID = "0000-0002-6289-6290")
                    )
