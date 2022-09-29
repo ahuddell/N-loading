@@ -104,21 +104,21 @@ huc8_01100005<-st_read(
 huc8_01100006<-st_read(
   here('data','huc8 shapes',paste0('HUC8_','01100006'),'Shape'), 
   layer='WBDHU8')
-huc8_01100007<-st_read(
-  here('data','huc8 shapes',paste0('HUC8_','01100007'),'Shape'), 
-  layer='WBDHU8')
+# huc8_01100007<-st_read(
+#   here('data','huc8 shapes',paste0('HUC8_','01100007'),'Shape'), 
+#   layer='WBDHU8') #the shape file for Long Island Sound no longer exists on the USGS website
 huc8_02030102<-st_read(
   here('data','huc8 shapes',paste0('HUC8_','02030102'),'Shape'), 
   layer='WBDHU8')
 huc8_02030201<-st_read(
   here('data','huc8 shapes',paste0('HUC8_','02030201'),'Shape'), 
   layer='WBDHU8')
-huc8_02030202<-st_read(
-  here('data','huc8 shapes',paste0('HUC8_','02030202'),'Shape'), 
-  layer='WBDHU8')
-huc8_02030203<-st_read(
-  here('data','huc8 shapes',paste0('HUC8_','02030203'),'Shape'), 
-  layer='WBDHU8')
+# huc8_02030202<-st_read(
+#   here('data','huc8 shapes',paste0('HUC8_','02030202'),'Shape'), 
+#   layer='WBDHU8')# the shape file for Southern Long Island no longer exists on the USGS website
+# huc8_02030203<-st_read(
+#   here('data','huc8 shapes',paste0('HUC8_','02030203'),'Shape'), 
+#   layer='WBDHU8')
 
 
 #join polygons
@@ -129,8 +129,11 @@ huc8_combined <- dplyr::bind_rows(list(huc8_01080101,huc8_01080102,huc8_01080103
                                        huc8_01080206,huc8_01080207,huc8_01090006,
                                        huc8_01100001,huc8_01100002,huc8_01100003,
                                        huc8_01100004,huc8_01100005,huc8_01100006,
-                                       huc8_01100007,huc8_02030102,huc8_02030201,
-                                       huc8_02030202,huc8_02030203))
+                                       #huc8_01100007,
+                                       huc8_02030102,huc8_02030201#,
+                                       #huc8_02030202,huc8_02030203
+                                       )
+                                  )
 mapview(huc8_combined) 
 
 #now transforming all CRS
