@@ -5,6 +5,9 @@ library(here)
 library(mapview)
 library(leaflet)
 library(lubridate)
+library(ggmap)
+library(ggsn)
+library(ggspatial)
 
 huc8<-st_read(here('data','huc_8_dat_join','huc8_combined.shp'))
 
@@ -30,31 +33,31 @@ huc8_names <- huc8%>%
   group_by(name) %>%
   slice(1) %>%
   st_centroid() 
-
-#leaflet map
-m <- leaflet(huc8) %>%
-  addProviderTiles(providers$OpenStreetMap) %>%
-  addPolygons( fillColor = ~ "lightgrey",
-               weight = 1,
-               color = 'black',
-               opacity = 1,
-               fillOpacity = 098)  %>%
-  addCircleMarkers(
-    data = outfalls$geom,
-    col = 'red',
-    fillOpacity = .8,
-    radius = 2
-  )%>%
-  addLabelOnlyMarkers(data = huc8_names,
-                      lng = ~unlist(map(huc8_names$geometry,1)), 
-                      lat = ~unlist(map(huc8_names$geometry,2)), label = ~name,
-                      labelOptions = labelOptions(noHide = TRUE, 
-                                direction = 'top', textOnly = TRUE)) %>%
-  setView(lat = 40.8,
-        lng = -73.9 ,
-        zoom = 10) 
-
-m
+# 
+# #leaflet map
+# m <- leaflet(huc8) %>%
+#   addProviderTiles(providers$OpenStreetMap) %>%
+#   addPolygons( fillColor = ~ "lightgrey",
+#                weight = 1,
+#                color = 'black',
+#                opacity = 1,
+#                fillOpacity = 098)  %>%
+#   addCircleMarkers(
+#     data = outfalls$geom,
+#     col = 'red',
+#     fillOpacity = .8,
+#     radius = 2
+#   )%>%
+#   addLabelOnlyMarkers(data = huc8_names,
+#                       lng = ~unlist(map(huc8_names$geometry,1)), 
+#                       lat = ~unlist(map(huc8_names$geometry,2)), label = ~name,
+#                       labelOptions = labelOptions(noHide = TRUE, 
+#                                 direction = 'top', textOnly = TRUE)) %>%
+#   setView(lat = 40.8,
+#         lng = -73.9 ,
+#         zoom = 10) 
+# 
+# m
 
 
 
@@ -71,7 +74,7 @@ dat_summary<- dat %>%
   summarise(kgN_huc8=sum(kg_N_TN_per_month,na.rm=T))
 
 #join huc spatial data to monthly totals
-N_load_huc_join<-left_join(dat_summary,huc8_combined)
+N_load_huc_join<-left_join(dat_summary,huc8)
 N_load_huc_join<-st_as_sf(N_load_huc_join)
 names(N_load_huc_join)
 
@@ -103,6 +106,45 @@ dat_sf
 
 #viewing data extents on map
 mapview(dat_sf)
+
+
+
+# revised map -------------------------------------------------------------
+e <- st_as_sfc(st_bbox(dat_sf), crs = st_crs(4326))
+
+register_google(key = "AIzaSyBOsXuaZE_dZhmrgzByxnLLcZL92os0DPg", write = TRUE)
+basemap <- get_map(location=c(st_coordinates(st_centroid(e))[[1]],
+                              st_coordinates(st_centroid(e))[2]),
+zoom=7,
+maptype = 'terrain',
+source = 'stamen')
+
+
+ggmap(basemap) 
+
+map<-ggmap(basemap) +
+  geom_point(data = dat, aes(x=LONGITUDE83,
+                             y=LATITUDE83), 
+             color='red', 
+             shape=16,
+             alpha =.4) +
+  labs(x = 'Longitude', y = 'Latitude') +
+  ggspatial::annotation_north_arrow(
+    location = "br",  pad_x = unit(0.6, "in"), pad_y = unit(0.7, "in")
+  ) +
+  ggsn::scalebar(x.min = -71, x.max = -69.8, 
+                 y.min = 40.3, y.max = 40.6,
+                 dist = 50, dist_unit= 'km',
+                 model = "WGS84", 
+                 st.size= 3,
+                 height = 0.2, 
+                 st.dist = 0.2 , 
+                 transform=T)
+map
+
+ggsave('map.jpeg', plot = map, device = NULL,
+       width=8, height =7, units = 'in', path = NULL,
+       scale=1, dpi = 300, limitsize = TRUE)
 
 # map ---------------------------------------------------------------------
 centroids <- dat_sf%>%

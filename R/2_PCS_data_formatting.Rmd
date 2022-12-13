@@ -295,30 +295,6 @@ dat$param_simple <- recode(dat$param,
     
   )
 
-#analyzing distribution of parameters
-levels(dat$param_simple)
-
-levels<-dat %>%
-  group_by(param_simple) %>%
-  tally()
-
-ggplot(levels, aes(param_simple,n))+
-  geom_col() +
-  ylab('count of observations')
-
-
-levels(dat$param)
-
-levels<-dat %>%
-  group_by(param) %>%
-  tally()
-
-ggplot(levels, aes(param,n))+
-  geom_col() +
-  ylab('count of observations')+
-  theme(axis.text.x=element_text(angle = 60, hjust=1))
-
-
 ```
 
 Let's separate the keys for which kg N/month loads already exist from those which don't.
@@ -348,11 +324,11 @@ N_load<- dat %>%
        'Quant Unit Cd (LQUC)',
        'Quant Unit Cd Desc (LQUCD)',
        'Meas Conc Minm (MCMN)',
-       #'Meas Conc Maxm (MCMX)_1',
-       #'Meas Conc Maxm (MCMX)',
        'Conc Unit Cd (LCUC)',
-       'Conc Unit Cd Desc (LCUCD)' )
+       'Conc Unit Cd Desc (LCUCD)',
+       'param')
   ) %>%
+  select(!starts_with('Meas Conc')) %>%
   distinct() #removing any duplicate rows
 
 
@@ -370,7 +346,7 @@ unique(N_load$param_simple)
 N_load_a<-N_load %>%
    pivot_wider(names_from = param_simple,
               values_from = kg_per_month) %>%
-   select(-million_L_per_month,- mg_N_per_L , -`Meas Conc Maxm (MCMX)_1`, -`Meas Conc Maxm (MCMX)`) %>%
+   select(-million_L_per_month,- mg_N_per_L, -permit_outfall_designator) %>%
   rename(kg_N_TN_per_month=TN,
          kg_N_NH3_per_month=NH3,
         kg_N_NO3_per_month=NO3, 
@@ -459,8 +435,8 @@ group_by(key) %>%
        'Quant Unit Cd (LQUC)',
        'Quant Unit Cd Desc (LQUCD)',
        'Meas Conc Minm (MCMN)',
-       'Meas Conc Maxm (MCMX)_1',
-       'Meas Conc Maxm (MCMX)',
+       # 'Meas Conc Maxm (MCMX)_1',
+       # 'Meas Conc Maxm (MCMX)',
        'Conc Unit Cd (LCUC)',
        'Conc Unit Cd Desc (LCUCD)',
        'quant_avg',
@@ -468,6 +444,8 @@ group_by(key) %>%
        'conc_avg'
        )
   ) %>%
+  select(!starts_with('Meas Conc Maxm (MCMX')) %>%
+
   distinct() 
  
  dup<-flow_cleaned %>%
@@ -642,6 +620,7 @@ N_load<- N_load %>%
   mutate(month_year=format(as.Date(date), "%Y-%m")) %>%
   select(-date)
 
+
 ```
 
 
@@ -711,7 +690,8 @@ N_load_out<-N_load_out %>%
     permit_outfall=='NH0000744_23' ~ 44.323049,
     permit_outfall=='NH0000744_24' ~ 44.323049,
     permit_outfall== 'NY0021750_2' ~ 40.948583,	
-    permit_outfall== 'NY0206644_2' ~ 40.924472)) %>%
+    permit_outfall== 'NY0206644_2' ~ 40.924472,
+    permit_outfall== 'NH0100307_FAC' ~ 43.374692)) %>%
    mutate(impute_lon= case_when(
     permit_outfall=='MA0100889_FAC' ~ -72.250278,
     permit_outfall=='MA0101281_1'~ -72.845629,
@@ -732,7 +712,8 @@ N_load_out<-N_load_out %>%
     permit_outfall=='NH0000744_23' ~ -71.560259,
     permit_outfall=='NH0000744_24' ~ -71.560259,
     permit_outfall== 'NY0021750_2' ~ -73.075639,
-    permit_outfall== 'NY0206644_2' ~ -73.121139))
+    permit_outfall== 'NY0206644_2' ~ -73.121139,
+    permit_outfall== 'NH0100307_FAC' ~ -72.140321))
 	
 
 #correcting one point that falls outside of LIS watershed
@@ -886,6 +867,12 @@ missing_huc8<-dat_join %>% filter(is.na(name)) %>%
             LATITUDE83=first(LATITUDE83),
             LONGITUDE83=first(LONGITUDE83))
 missing_huc8 #none are missing now
+
+
+#clearning up a few last columns
+dat_join<- dat_join %>%
+  select(-quant_avg,-conc_avg,-days_per_month)
+
 
 write.csv(dat_join,
           file = here("data", "PCS_data_clean.csv"),
