@@ -1,6 +1,12 @@
-#load data
-dat<-read_csv(file=here("data","clean_PCS_ECHO_dat.csv"))
+library(tidyverse)
+library(here)
+library(lubridate)
 
+#load data
+# dat<-read_csv(file=here("data","clean_PCS_ECHO_dat.csv"))
+# # 
+ dat<-read_csv(file=here("data","complete_time_series_with_missing_data_imputed.csv"))# updated dataset
+dat <- filter(dat,imputed_missing_value==1 ) #subset to only imputed data
 # monthly plots -----------------------------------------------------------
 
 # ggplot(dat,aes(x=month_year,y=kg_N_TN_per_month/1000)) +
@@ -13,17 +19,17 @@ dat<-read_csv(file=here("data","clean_PCS_ECHO_dat.csv"))
 
 # annual sum to compare to LIS tracker--------------------------------------------------------------
 
-#checking for duplicate keys
-dat %>%
-  group_by(key)%>%
-  tally() %>%
-  filter(n>1)
-#there are none
+# #checking for duplicate keys
+# dat %>%
+#   group_by(key)%>%
+#   tally() %>%
+#   filter(n>1)
+# #there are none
 
 annual_sum<-dat %>%
-  group_by(permit_outfall, state,facility,year=year(month_year)) %>%
+  group_by(permit_outfall, state,facility,year=year(ym(month_year))) %>%
   summarise(count_n=n(),
-            kg_N_TN_d=sum(kg_N_TN_per_month, na.rm = T)/(count_n*30)) %>%
+            kg_N_TN_d=sum(kg_N_TN_per_month_complete, na.rm = T)/(count_n*30)) %>%
   arrange((count_n))
 annual_sum
 
@@ -89,9 +95,9 @@ ggplot(join,aes(x=kg_N_TN_d,y=kg_N_TN_d_LIS
   theme_minimal()+
   # scale_shape_manual(values=c(1:133))+
   #  ylim(0,2000)+
-  xlab('ECHO/CTDEEP data')+
+  xlab('ECHO/CTDEEP imputed data only')+
   ylab('LIS tracker')+
-  annotate(geom='text',x=2500, y=20000, label="R2=0.996",
+  annotate(geom='text',x=2500, y=20000, label="R2=0.97",
            fontface =2)
 
 
