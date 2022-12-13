@@ -112,7 +112,7 @@ mapview(dat_sf)
 # revised map -------------------------------------------------------------
 e <- st_as_sfc(st_bbox(dat_sf), crs = st_crs(4326))
 
-register_google(key = "AIzaSyBOsXuaZE_dZhmrgzByxnLLcZL92os0DPg", write = TRUE)
+register_google(key = "AIzaSyAaOHwjZI9ztribQ7vGnmaQnZrLqWfWd7E", write = TRUE)
 basemap <- get_map(location=c(st_coordinates(st_centroid(e))[[1]],
                               st_coordinates(st_centroid(e))[2]),
 zoom=7,
@@ -128,7 +128,7 @@ map<-ggmap(basemap) +
              color='red', 
              shape=16,
              alpha =.4) +
-  labs(x = 'Longitude', y = 'Latitude') +
+  labs(x = 'Longitude (°)', y = 'Latitude (°)') +
   ggspatial::annotation_north_arrow(
     location = "br",  pad_x = unit(0.6, "in"), pad_y = unit(0.7, "in")
   ) +
