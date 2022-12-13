@@ -8,7 +8,7 @@ library(tsibble)
 library(dataRetrieval)
 library(broom)
 library(imputeTS)
-#library(fable)
+library(patchwork)
 
 #load data
 dat<-read_csv(file=here("data","clean_PCS_ECHO_dat.csv"))
@@ -341,7 +341,7 @@ full_ts %>%
 # plot time series --------------------------------------------------------
 
 #plot CT facilities only with imputed vs. not in different color
-full_ts %>%
+CT_fig<-full_ts %>%
   filter(state=="CT") %>%
   ggplot(aes(x=as.Date(month_year), y=kg_N_TN_per_month_complete/1000)) +
   geom_point(aes(col=as.factor(imputed_missing_value)),  shape = 20)+
@@ -360,8 +360,9 @@ full_ts %>%
   guides(color = guide_legend(override.aes = list(size=3)))+
   facet_wrap(~facility_outfall, scale="free_y", labeller = label_wrap_gen(20))
 
+
 #plot CT facilities only with simple lines
-full_ts %>%
+CT_fig_lines<-full_ts %>%
   filter(state=="CT") %>%
   ggplot(aes(x=as.Date(month_year), y=kg_N_TN_per_month_complete/1000)) +
   geom_line()+
@@ -382,7 +383,7 @@ full_ts %>%
 
 
 #plot non-CT facilities with imputed vs. not in different color
-full_ts %>%
+nonCT_fig<-full_ts %>%
   filter(state!="CT") %>%
   ggplot(aes(x=as.Date(month_year), y=kg_N_TN_per_month_complete/1000)) +
   geom_point(aes(col=as.factor(imputed_missing_value)),  shape = 20)+
@@ -403,7 +404,7 @@ full_ts %>%
 
 
 #plot non-CT facilities with simple lines
-full_ts %>%
+nonCT_fig_lines<-full_ts %>%
   filter(state!="CT") %>%
   ggplot(aes(x=as.Date(month_year), y=kg_N_TN_per_month_complete/1000)) +
   geom_line(col="grey10")+
@@ -422,6 +423,24 @@ full_ts %>%
   guides(color = guide_legend(override.aes = list(size=3)))+
   facet_wrap(~facility_outfall, scale="free_y", labeller = label_wrap_gen(20))
 
+#save figure
+p1<-(CT_fig/nonCT_fig)+
+  plot_annotation(tag_levels = 'a') +
+  plot_layout(guides = "collect") & theme(legend.position = 'bottom')
+
+ggsave('fig2.jpeg', plot = p1, device = NULL,
+       width=8, height =10, units = 'in', path = NULL,
+       scale=2, dpi = 300, limitsize = TRUE)
+
+
+p2<-(CT_fig_lines/nonCT_fig_lines)+
+  plot_annotation(tag_levels = 'a') +
+  plot_layout(guides = "collect") & theme(legend.position = 'bottom')
+
+ggsave('fig2v2.jpeg', plot = p2, device = NULL,
+       width=8, height =10, units = 'in', path = NULL,
+       scale=1.6, dpi = 300, limitsize = TRUE)
+
 
 full_ts$date<-as.Date(full_ts$month_year)
 full_ts$watershed_name<-full_ts$name
@@ -431,6 +450,7 @@ full_ts<-select(full_ts, -name)
 
 #reformat outlier column class
 full_ts$outlier<-as.factor(full_ts$outlier)
+
 
 zipfunc <- function(df, zippedfile) {
   # write temp csv
@@ -442,7 +462,9 @@ zipfunc <- function(df, zippedfile) {
   unlink(temp_filename)
 }
 
-zipfunc(df=full_ts,zippedfile=here("data",'complete_time_series_with_missing_data_imputed.zip'))
+zipfunc(df=full_ts,
+        zippedfile=
+          here("data",'complete_time_series_with_missing_data_imputed.zip'))
 
 
 # write out summary of location data --------------------------------------
